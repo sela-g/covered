@@ -1,5 +1,5 @@
 #covered analysis:
-setwd("/Users/mac/Desktop/RID/covered/suraya_ianna")
+
 library(lme4)
 library(MASS)
 library(multcomp)
@@ -36,29 +36,35 @@ library(ltm)
 library(readxl)
 
 ### Load data
+setwd("/Users/selagrays/dev/covered")
+getwd()
 
-data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2022-08-12_0937.csv",header = TRUE)
+
+data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-08_1343.csv",header = TRUE)
 
 ## look at data
 
 length(unique(data$record_id))
 describeFactors(data$bl16_country_res[which(data$withdraw_answer == 1)])
 
-
-
 data <- data[-which(data$withdraw_answer == 1), ]
+
 
 ids.can <- data$record_id[which(data$bl16_country_res == 1)]
 
-length(unique(data$record_id))
+ids.can.preg <- data$record_id[which(data$bl16_country_res == 1 & 
+                                       #data$bl1_currently_preg == "yes" &
+                                       data$i1_dob1 > data$vaccine_attitudes_survey_timestamp
+)]
 
-data_bl <- data[which(data$redcap_event_name == "baseline_arm_1" & data$record_id %in% ids.can), ]
-data_2mo <- data[which(data$redcap_event_name == "followup_2_months_arm_1" & data$record_id %in% ids.can), ]
-data_4mo <- data[which(data$redcap_event_name == "followup_4_months_arm_1" & data$record_id %in% ids.can), ]
-data_6mo <- data[which(data$redcap_event_name == "followup_6_months_arm_1" & data$record_id %in% ids.can), ]
-data_8mo <- data[which(data$redcap_event_name == "followup_8_months_arm_1" & data$record_id %in% ids.can), ]
-data_10mo <- data[which(data$redcap_event_name == "followup_10_months_arm_1" & data$record_id %in% ids.can), ]
-data_14mo <- data[which(data$redcap_event_name == "followup_14_months_arm_1" & data$record_id %in% ids.can), ]
+
+data_bl <- data[which(data$redcap_event_name == "baseline_arm_1" & data$record_id %in% ids.can.preg), ]
+data_2mo <- data[which(data$redcap_event_name == "followup_2_months_arm_1" & data$record_id %in% ids.can.preg), ]
+data_4mo <- data[which(data$redcap_event_name == "followup_4_months_arm_1" & data$record_id %in% ids.can.preg), ]
+data_6mo <- data[which(data$redcap_event_name == "followup_6_months_arm_1" & data$record_id %in% ids.can.preg), ]
+data_8mo <- data[which(data$redcap_event_name == "followup_8_months_arm_1" & data$record_id %in% ids.can.preg), ]
+data_10mo <- data[which(data$redcap_event_name == "followup_10_months_arm_1" & data$record_id %in% ids.can.preg), ]
+data_14mo <- data[which(data$redcap_event_name == "followup_14_months_arm_1" & data$record_id %in% ids.can.preg), ]
 
 # followup_10_months_arm_1 "3,522"
 # followup_14_months_arm_1 "411"   
@@ -122,7 +128,6 @@ data_8mo$record_id <- data_8mo$record_id_8mo
 data_10mo$record_id <- data_10mo$record_id_10mo
 data_14mo$record_id <- data_14mo$record_id_14mo
 
-
 data_use <- left_join(data_bl, data_2mo, by = "record_id")
 data_use <- left_join(data_use, data_4mo, by = "record_id")
 data_use <- left_join(data_use, data_6mo, by = "record_id")
@@ -135,23 +140,23 @@ data <- data_use
 # #### UPDATE NOVEMBER 28 2023 ####
 #### REIMPORTING OTHER PART OF COVERED SURVEY TO INCLUDE WHETHER FILLED OUT DURING PREGNANCY #####
 
-data_update <- read.csv("covered_11-28-2023.csv", header = TRUE)
+#data_update <- read.csv("covered_11-28-2023.csv", header = TRUE)
 
 
 
-data_update <- data_update[-which(data_update$withdraw_answer == 1), ]
+#data_update <- data_update[-which(data_update$withdraw_answer == 1), ]
 
-ids.can2 <- data_update$record_id[which(data_update$bl16_country_res == 1)]
+#ids.can2 <- data_update$record_id[which(data_update$bl16_country_res == 1)]
 
-length(unique(data_update$record_id))
+#length(unique(data_update$record_id))
 
-data_update_bl <- data_update[which(data_update$redcap_event_name == "baseline_arm_1" & data_update$record_id %in% ids.can2), ]
-data_update_2mo <- data_update[which(data_update$redcap_event_name == "followup_2_months_arm_1" & data_update$record_id %in% ids.can2), ]
-data_update_4mo <- data_update[which(data_update$redcap_event_name == "followup_4_months_arm_1" & data_update$record_id %in% ids.can2), ]
-data_update_6mo <- data_update[which(data_update$redcap_event_name == "followup_6_months_arm_1" & data_update$record_id %in% ids.can2), ]
-data_update_8mo <- data_update[which(data_update$redcap_event_name == "followup_8_months_arm_1" & data_update$record_id %in% ids.can2), ]
-data_update_10mo <- data_update[which(data_update$redcap_event_name == "followup_10_months_arm_1" & data_update$record_id %in% ids.can2), ]
-data_update_14mo <- data_update[which(data_update$redcap_event_name == "followup_14_months_arm_1" & data_update$record_id %in% ids.can2), ]
+#data_update_bl <- data_update[which(data_update$redcap_event_name == "baseline_arm_1" & data_update$record_id %in% ids.can2), ]
+#data_update_2mo <- data_update[which(data_update$redcap_event_name == "followup_2_months_arm_1" & data_update$record_id %in% ids.can2), ]
+#data_update_4mo <- data_update[which(data_update$redcap_event_name == "followup_4_months_arm_1" & data_update$record_id %in% ids.can2), ]
+#data_update_6mo <- data_update[which(data_update$redcap_event_name == "followup_6_months_arm_1" & data_update$record_id %in% ids.can2), ]
+#data_update_8mo <- data_update[which(data_update$redcap_event_name == "followup_8_months_arm_1" & data_update$record_id %in% ids.can2), ]
+#data_update_10mo <- data_update[which(data_update$redcap_event_name == "followup_10_months_arm_1" & data_update$record_id %in% ids.can2), ]
+#data_update_14mo <- data_update[which(data_update$redcap_event_name == "followup_14_months_arm_1" & data_update$record_id %in% ids.can2), ]
 
 # followup_10_months_arm_1 "3,522"
 # followup_14_months_arm_1 "411"
@@ -162,93 +167,93 @@ data_update_14mo <- data_update[which(data_update$redcap_event_name == "followup
 
 ## clear out empty rows and columns
 ### some columns are entirely "" rather than NA
-data_update_bl <- data_update_bl %>%
-  mutate(across(where(is.factor), ~as.character(.x))) %>%
-  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+#data_update_bl <- data_update_bl %>%
+#  mutate(across(where(is.factor), ~as.character(.x))) %>%
+#  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
 
-data_update_2mo <- data_update_2mo %>%
-  mutate(across(where(is.factor), ~as.character(.x))) %>%
-  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+#data_update_2mo <- data_update_2mo %>%
+#  mutate(across(where(is.factor), ~as.character(.x))) %>%
+#  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
 
-data_update_4mo <- data_update_4mo %>%
-  mutate(across(where(is.factor), ~as.character(.x))) %>%
-  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+#data_update_4mo <- data_update_4mo %>%
+#  mutate(across(where(is.factor), ~as.character(.x))) %>%
+#  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
 
-data_update_6mo <- data_update_6mo %>%
-  mutate(across(where(is.factor), ~as.character(.x))) %>%
-  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+#data_update_6mo <- data_update_6mo %>%
+#  mutate(across(where(is.factor), ~as.character(.x))) %>%
+#  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
 
-data_update_8mo <- data_update_8mo %>%
-  mutate(across(where(is.factor), ~as.character(.x))) %>%
-  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+#data_update_8mo <- data_update_8mo %>%
+#  mutate(across(where(is.factor), ~as.character(.x))) %>%
+#  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
 
-data_update_10mo <- data_update_10mo %>%
-  mutate(across(where(is.factor), ~as.character(.x))) %>%
-  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+#data_update_10mo <- data_update_10mo %>%
+#  mutate(across(where(is.factor), ~as.character(.x))) %>%
+#  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
 
-data_update_14mo <- data_update_14mo %>%
-  mutate(across(where(is.factor), ~as.character(.x))) %>%
-  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+#data_update_14mo <- data_update_14mo %>%
+#  mutate(across(where(is.factor), ~as.character(.x))) %>%
+#  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
 
-data_update_bl <- janitor::remove_empty(data_update_bl)
-data_update_2mo <- janitor::remove_empty(data_update_2mo)
-data_update_4mo <- janitor::remove_empty(data_update_4mo)
-data_update_6mo <- janitor::remove_empty(data_update_6mo)
-data_update_8mo <- janitor::remove_empty(data_update_8mo)
-data_update_10mo <- janitor::remove_empty(data_update_10mo)
-data_update_14mo <- janitor::remove_empty(data_update_14mo)
+#data_update_bl <- janitor::remove_empty(data_update_bl)
+#data_update_2mo <- janitor::remove_empty(data_update_2mo)
+#data_update_4mo <- janitor::remove_empty(data_update_4mo)
+#data_update_6mo <- janitor::remove_empty(data_update_6mo)
+#data_update_8mo <- janitor::remove_empty(data_update_8mo)
+#data_update_10mo <- janitor::remove_empty(data_update_10mo)
+#data_update_14mo <- janitor::remove_empty(data_update_14mo)
 
 # find variable names in common
-colnames(data_update_bl) <- paste0(colnames(data_update_bl), "_BL")
-colnames(data_update_2mo) <- paste0(colnames(data_update_2mo), "_2mo")
-colnames(data_update_4mo) <- paste0(colnames(data_update_4mo), "_4mo")
-colnames(data_update_6mo) <- paste0(colnames(data_update_6mo), "_6mo")
-colnames(data_update_8mo) <- paste0(colnames(data_update_8mo), "_8mo")
-colnames(data_update_10mo) <- paste0(colnames(data_update_10mo), "_10mo")
-colnames(data_update_14mo) <- paste0(colnames(data_update_14mo), "_14mo")
+#colnames(data_update_bl) <- paste0(colnames(data_update_bl), "_BL")
+#colnames(data_update_2mo) <- paste0(colnames(data_update_2mo), "_2mo")
+#colnames(data_update_4mo) <- paste0(colnames(data_update_4mo), "_4mo")
+#colnames(data_update_6mo) <- paste0(colnames(data_update_6mo), "_6mo")
+#colnames(data_update_8mo) <- paste0(colnames(data_update_8mo), "_8mo")
+#colnames(data_update_10mo) <- paste0(colnames(data_update_10mo), "_10mo")
+#colnames(data_update_14mo) <- paste0(colnames(data_update_14mo), "_14mo")
 
-data_update_bl$record_id <- data_update_bl$record_id_BL
-data_update_2mo$record_id <- data_update_2mo$record_id_2mo
-data_update_4mo$record_id <- data_update_4mo$record_id_4mo
-data_update_6mo$record_id <- data_update_6mo$record_id_6mo
-data_update_8mo$record_id <- data_update_8mo$record_id_8mo
-data_update_10mo$record_id <- data_update_10mo$record_id_10mo
-data_update_14mo$record_id <- data_update_14mo$record_id_14mo
+#data_update_bl$record_id <- data_update_bl$record_id_BL
+#data_update_2mo$record_id <- data_update_2mo$record_id_2mo
+#data_update_4mo$record_id <- data_update_4mo$record_id_4mo
+#data_update_6mo$record_id <- data_update_6mo$record_id_6mo
+#data_update_8mo$record_id <- data_update_8mo$record_id_8mo
+#data_update_10mo$record_id <- data_update_10mo$record_id_10mo
+#data_update_14mo$record_id <- data_update_14mo$record_id_14mo
 
 
-data_update_use <- left_join(data_update_bl, data_update_2mo, by = "record_id")
-data_update_use <- left_join(data_update_use, data_update_4mo, by = "record_id")
-data_update_use <- left_join(data_update_use, data_update_6mo, by = "record_id")
-data_update_use <- left_join(data_update_use, data_update_8mo, by = "record_id")
-data_update_use <- left_join(data_update_use, data_update_10mo, by = "record_id")
-data_update_use <- left_join(data_update_use, data_update_14mo, by = "record_id")
+#data_update_use <- left_join(data_update_bl, data_update_2mo, by = "record_id")
+#data_update_use <- left_join(data_update_use, data_update_4mo, by = "record_id")
+#data_update_use <- left_join(data_update_use, data_update_6mo, by = "record_id")
+#data_update_use <- left_join(data_update_use, data_update_8mo, by = "record_id")
+#data_update_use <- left_join(data_update_use, data_update_10mo, by = "record_id")
+#data_update_use <- left_join(data_update_use, data_update_14mo, by = "record_id")
 
 
 
 
 # 
 # #### UPDATE NOVEMBER 28 2023 - EXCLUDE VACCINATED DURING LACTATION (only pregnancy) ####
-dim(data_use)
-dim(data_update_use)
-dim(data_update)
+#dim(data_use)
+#dim(data_update_use)
+#dim(data_update)
 dim(data)
-length(unique(data_use$record_id_BL))
-length(unique(data_update_use$record_id_BL))
+#length(unique(data_use$record_id_BL))
+#length(unique(data_update_use$record_id_BL))
 
-sum(data_use$record_id_BL %in% unique(data_update_use$record_id_BL))
+#sum(data_use$record_id_BL %in% unique(data_update_use$record_id_BL))
 
-data_update_use2 <- data_update_use[,-which(colnames(data_update_use) %in% colnames(data_use)[-1])]
+#data_update_use2 <- data_update_use[,-which(colnames(data_update_use) %in% colnames(data_use)[-1])]
 
-data_use <- inner_join(data_use,data_update_use, by = "record_id_BL")
+#data_use <- inner_join(data_use,data_update_use, by = "record_id_BL")
 
-dim(data_use)
+#dim(data_use)
 ## check to see how many people had all three doses during pregnancy manually:
 ## dose 1 during pregnancy checked using:
 
 ## BASELINE
-sum(data_use$do2_timing_BL == 2, na.rm = TRUE)
+sum(data_use$bl9_dose2_timing == 2, na.rm = TRUE)
 ## 1601 selected "first dose during pregnancy" using the checklist/ radio
-sum(data_use$do2_timing2___2_BL)
+# sum(data_use$do2_timing2___2_BL)
 ## 1383 selected "first dose during pregnancy" using the other (radio/ checklist, not sure which)
 
 ##2 Month
@@ -292,7 +297,7 @@ sum(data_use$dt2_timing2_vb___2_BL)
 
 
 ## checking all three:
-# sum(data_use$do2_timing2___2_BL*data_use$dt2_timing2___2_BL*data_use$dt2_timing2_vb___2_BL)
+sum(data_use$do2_timing2___2_BL*data_use$dt2_timing2___2_BL*data_use$dt2_timing2_vb___2_BL)
 
 
 data_use <- data_use %>%
