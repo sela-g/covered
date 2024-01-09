@@ -1,5 +1,5 @@
 #covered analysis:
-
+rm(list = ls())
 library(lme4)
 library(MASS)
 library(multcomp)
@@ -40,7 +40,7 @@ setwd("/Users/selagrays/dev/covered")
 getwd()
 
 
-data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-05_1521.csv",header = TRUE)
+data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-09_1243.csv",header = TRUE)
 
 ## look at data
 
@@ -52,13 +52,24 @@ data <- data[-which(data$withdraw_answer == 1), ]
 
 ids.can <- data$record_id[which(data$bl16_country_res == 1)]
 
-ids.can.preg <- data$record_id[which(data$bl16_country_res == 1 & 
+ids.can.preg <- data$record_id[which(data$bl16_country_res == 1 & data$vaccine_attitudes_survey_timestamp != "" &
+                                       data$i1_dob1 != "" &
                                        #data$bl1_currently_preg == "yes" &
                                        data$i1_dob1 > data$vaccine_attitudes_survey_timestamp
 )]
 
-identified_records <- data[which((data$record_id %in% ids.can.preg)),]
-write.csv(identified_records, "records.csv")
+data2 <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-05_1521.csv",header = TRUE)
+
+data2 <- data2[-which(data2$withdraw_answer == 1), ]
+
+
+ids.can2 <- data2$record_id[which(data2$bl16_country_res == 1)]
+
+ids.can.preg2 <- data2$record_id[which(data2$bl16_country_res == 1 & data2$vaccine_attitudes_survey_timestamp != "" &
+                                       data2$i1_dob1 != "" &
+                                       #data$bl1_currently_preg == "yes" &
+                                       data2$i1_dob1 > data2$vaccine_attitudes_survey_timestamp
+)]
 
 
 data_bl <- data[which(data$redcap_event_name == "baseline_arm_1" & data$record_id %in% ids.can.preg), ]
