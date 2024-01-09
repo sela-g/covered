@@ -40,7 +40,7 @@ setwd("/Users/selagrays/dev/covered")
 getwd()
 
 
-data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-08_1343.csv",header = TRUE)
+data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-05_1521.csv",header = TRUE)
 
 ## look at data
 
@@ -56,6 +56,9 @@ ids.can.preg <- data$record_id[which(data$bl16_country_res == 1 &
                                        #data$bl1_currently_preg == "yes" &
                                        data$i1_dob1 > data$vaccine_attitudes_survey_timestamp
 )]
+
+identified_records <- data[which((data$record_id %in% ids.can.preg)),]
+write.csv(identified_records, "records.csv")
 
 
 data_bl <- data[which(data$redcap_event_name == "baseline_arm_1" & data$record_id %in% ids.can.preg), ]
