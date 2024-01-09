@@ -36,11 +36,11 @@ library(ltm)
 library(readxl)
 
 ### Load data
-setwd("/Users/selagrays/dev/covered")
+setwd("\\\\PHSAhome2.phsabc.ehcnet.ca/sela.grays/covered")
 getwd()
 
 
-data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-09_1243.csv",header = TRUE)
+data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-09_1448.csv",header = TRUE)
 
 ## look at data
 
@@ -56,6 +56,14 @@ ids.can.preg <- data$record_id[which(data$bl16_country_res == 1 & data$vaccine_a
                                        data$i1_dob1 != "" &
                                        #data$bl1_currently_preg == "yes" &
                                        data$i1_dob1 > data$vaccine_attitudes_survey_timestamp
+)]
+
+EDDs <- data$bl1a_delivery_date
+
+ids.can.EDD <- data$record_id[which(data$bl16_country_res == 1 & data$bl1a_delivery_date != "" &
+                                       data$bl1a_delivery_date != "" &
+                                       #data$bl1_currently_preg == "yes" &
+                                       data$bl1a_delivery_date > data$vaccine_attitudes_survey_timestamp
 )]
 
 data2 <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-05_1521.csv",header = TRUE)
