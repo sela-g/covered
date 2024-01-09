@@ -62,7 +62,7 @@ EDDs <- data$bl1a_delivery_date
 
 ids.can.EDD <- data$record_id[which(data$bl16_country_res == 1 & data$bl1a_delivery_date != "" &
                                        data$bl1a_delivery_date != "" &
-                                       #data$bl1_currently_preg == "yes" &
+                                       data$vaccine_attitudes_survey_timestamp != "" &
                                        data$bl1a_delivery_date > data$vaccine_attitudes_survey_timestamp
 )]
 
