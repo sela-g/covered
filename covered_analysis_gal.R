@@ -40,7 +40,7 @@ setwd("\\\\PHSAhome2.phsabc.ehcnet.ca/sela.grays/covered")
 getwd()
 
 
-data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-09_1448.csv",header = TRUE)
+data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-11_1426.csv",header = TRUE)
 
 ## look at data
 
@@ -66,19 +66,14 @@ ids.can.EDD <- data$record_id[which(data$bl16_country_res == 1 & data$bl1a_deliv
                                        data$bl1a_delivery_date > data$vaccine_attitudes_survey_timestamp
 )]
 
-data2 <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-05_1521.csv",header = TRUE)
+ids.can.EDD.vacc <- data$record_id[which(data$bl16_country_res == 1 & data$bl1a_delivery_date != "" &
+                                      data$bl1a_delivery_date != "" &
+                                      data$vaccine_attitudes_survey_timestamp != "" &
+                                      data$bl1a_delivery_date > data$vaccine_attitudes_survey_timestamp &
+                                      data$do3_date != "" & data$bl1a_delivery_date > data$do3_date
+                                      )]
 
-data2 <- data2[-which(data2$withdraw_answer == 1), ]
-
-
-ids.can2 <- data2$record_id[which(data2$bl16_country_res == 1)]
-
-ids.can.preg2 <- data2$record_id[which(data2$bl16_country_res == 1 & data2$vaccine_attitudes_survey_timestamp != "" &
-                                       data2$i1_dob1 != "" &
-                                       #data$bl1_currently_preg == "yes" &
-                                       data2$i1_dob1 > data2$vaccine_attitudes_survey_timestamp
-)]
-
+vacc.dates <-  data$do3_date
 
 data_bl <- data[which(data$redcap_event_name == "baseline_arm_1" & data$record_id %in% ids.can.preg), ]
 data_2mo <- data[which(data$redcap_event_name == "followup_2_months_arm_1" & data$record_id %in% ids.can.preg), ]
