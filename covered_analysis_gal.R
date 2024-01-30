@@ -36,11 +36,11 @@ library(ltm)
 library(readxl)
 
 ### Load data
-setwd("\\\\PHSAhome2.phsabc.ehcnet.ca/sela.grays/covered")
+#setwd("\\\\PHSAhome2.phsabc.ehcnet.ca/sela.grays/covered")
 getwd()
 
 
-data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-12_1718.csv",header = TRUE)
+data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-29_1859 (3).csv",header = TRUE)
 
 ## look at data
 
@@ -270,10 +270,10 @@ dim(data)
 ## BASELINE
 
 #VACCINATED IN PREG
-data_use[which(data_use$record_id %in% ids.can.EDD.vacc),]
+vacced <- data_use[which(data_use$record_id %in% ids.can.EDD.vacc),]
 
 #UNVACCINATED IN PREG 
-data_use[-which(data_use$record_id %in% ids.can.EDD.vacc),]
+unvacced <- data_use[-which(data_use$record_id %in% ids.can.EDD.vacc),]
 
 #sum(data_use$bl9_dose2_timing == 2, na.rm = TRUE)
 ## 1601 selected "first dose during pregnancy" using the checklist/ radio
@@ -321,20 +321,14 @@ data_use[-which(data_use$record_id %in% ids.can.EDD.vacc),]
 
 
 ## checking all three:
-sum(data_use$do2_timing2___2_BL*data_use$dt2_timing2___2_BL*data_use$dt2_timing2_vb___2_BL)
-
+#sum(data_use$do2_timing2___2_BL*data_use$dt2_timing2___2_BL*data_use$dt2_timing2_vb___2_BL)
+`%notin%` <- Negate(`%in%`)
 
 data_use <- data_use %>%
   mutate(
-    had_dose_1 = case_when(
-      do2_timing_BL == 2 ~ TRUE,
-      do2_timing2___2_BL == 1  ~ TRUE,
-      do2_timing2___2_2mo  == 1 ~ TRUE,
-      do2_timing2___2_4mo  == 1 ~ TRUE,
-      do2_timing2___2_6mo == 1  ~ TRUE,
-      do2_timing2___2_8mo  == 1 ~ TRUE,
-      do2_timing2___2_10mo  == 1 ~ TRUE,
-      do2_timing2___2_14mo  == 1 ~ TRUE
+    had_dose_1 = case_when(data_use$record_id %in% ids.can.EDD.vacc ~ TRUE,
+                           data_use$record_id %notin% ids.can.EDD.vacc ~ FALSE
+                           
     )
   )
 
@@ -509,7 +503,7 @@ data_use <- data_use %>%
 #       do2_timing_BL == 4 | do2_timing2___4_BL == 1 ~ "D1 post-partum/Not BF"
 #     )
 #   )
-# 
+# # 
 # describeFactors(data_use$dose1_T)
 # # # View(data_use[which(data_use$dose1_T == "D1 before preg"), c("record_id", "dose1_preg_ga",  "bl4_dose1", "bl1_currently_preg", "bl5_dose1_timing", "do2_timing", "bl5_dose1_timing2___1", "do2_timing2___1", "bl5_dose1_timing2___2", "do2_timing2___2", "bl5_dose1_timing2___3", "do2_timing2___3", "bl5_dose1_timing2___4", "do2_timing2___4", "do2_timing_other", "bl5_dose1_timing_other")])
 # 
@@ -557,30 +551,29 @@ data_use <- data_use %>%
 # include "4,735 (83.2%)"
 
 # describeFactors(data_use$i1_dob1_BL)
-data_use$BABY_HAS_DOB_BL <- ifelse(is.na(data_use$i1_dob1_BL), "No", "Yes")
 
-tab_xtab(data_use$BABY_HAS_DOB_BL, data_use$include)
+#tab_xtab(data_use$BABY_HAS_DOB_BL, data_use$include)
 
-tab_xtab(data_use$dose1_T[which(data_use$BABY_HAS_DOB_BL == "Yes")], data_use$dose2_T[which(data_use$BABY_HAS_DOB_BL == "Yes")])
+#tab_xtab(data_use$dose1_T[which(data_use$BABY_HAS_DOB_BL == "Yes")], data_use$dose2_T[which(data_use$BABY_HAS_DOB_BL == "Yes")])
 
 
-data_use <- data_use %>%
-  mutate(
-    dose3_T = case_when(
-      dose1_T == "No vaccine NOT pregnant" ~ "No vaccine NOT pregnant",
-      dose1_T == "No vaccine pregnant" ~ "No vaccine pregnant",
-      bl8_dose2_BL == 0 ~ "No D2 or D3",
-      dt2_timing2_vb___2_BL == 1 ~ "D3 during preg",
-      dt2_timing2_vb___1_BL == 1 ~ "D3 before preg",
-      dt2_timing2_vb___3_BL == 1 ~ "D3 post-partum/BF",
-      dt2_timing2_vb___4_BL == 1 ~ "D3 post-partum/Not BF"
-    )
-  )
-
-describeFactors(data_use$dose3_T)
-
-tab_xtab(data_use$dose1_T, data_use$dose3_T)
-tab_xtab(data_use$dose1_T, data_use$dose2_T)
+# data_use <- data_use %>%
+#   mutate(
+#     dose3_T = case_when(
+#       dose1_T == "No vaccine NOT pregnant" ~ "No vaccine NOT pregnant",
+#       dose1_T == "No vaccine pregnant" ~ "No vaccine pregnant",
+#       bl8_dose2_BL == 0 ~ "No D2 or D3",
+#       dt2_timing2_vb___2_BL == 1 ~ "D3 during preg",
+#       dt2_timing2_vb___1_BL == 1 ~ "D3 before preg",
+#       dt2_timing2_vb___3_BL == 1 ~ "D3 post-partum/BF",
+#       dt2_timing2_vb___4_BL == 1 ~ "D3 post-partum/Not BF"
+#     )
+#   )
+# 
+# describeFactors(data_use$dose3_T)
+# 
+# tab_xtab(data_use$dose1_T, data_use$dose3_T)
+# tab_xtab(data_use$dose1_T, data_use$dose2_T)
 
 #########
 #### DOSE SPECIFIC SURVEYS WERE ONLY ASKED ONCE SO I THINK WE CAN COMBINE THEM ACROSS TIME POINTS FOR EACH PERSON
@@ -588,15 +581,15 @@ tab_xtab(data_use$dose1_T, data_use$dose2_T)
 # IF D1 DURING PREG AT BASELINE THEN INCLUDE THEM
 data_use <- data_use %>%
   mutate(include_BL = case_when(
-    dose1_T == "D1 before preg" ~ "exclude",
-    dose1_T == "D1 during preg" & dose2_T == "D2 during preg" & dose3_T == "D3 during preg" ~ "include D1&2&3 in preg",
-    dose1_T == "D1 during preg" & dose2_T == "D2 during preg" ~ "D1&2 in preg",
-    dose1_T == "D1 during preg" ~ "include D1 in preg",
-    grepl("post", dose1_T) & dose2_T %in% c("D2 before preg", "D2 during preg") & dose3_T %in% c("D3 before preg", "D3 during preg") ~ "exclude",
-    grepl("post", dose1_T) & dose2_T %in% c("D2 before preg", "D2 during preg") ~ "exclude",
-    grepl("post", dose1_T) ~ "include D1 pp",
-    dose1_T == "No vaccine NOT pregnant" ~ "exclude not preg",
-    dose1_T == "No vaccine pregnant" ~ "include no vax BL"
+#    dose1_T == "D1 before preg" ~ "exclude",
+    data_use$record_id %in% ids.can.EDD.vacc ~ "include D1&2&3 in preg",
+    data_use$record_id %in% ids.can.EDD.vacc ~ "D1&2 in preg",
+    data_use$record_id %in% ids.can.EDD.vacc ~ "include D1 in preg",
+#    grepl("post", dose1_T) & dose2_T %in% c("D2 before preg", "D2 during preg") & dose3_T %in% c("D3 before preg", "D3 during preg") ~ "exclude",
+#    grepl("post", dose1_T) & dose2_T %in% c("D2 before preg", "D2 during preg") ~ "exclude",
+    data_use$record_id %in% ids.can.EDD.vacc ~ "include D1 pp",
+#    dose1_T == "No vaccine NOT pregnant" ~ "exclude not preg",
+    data_use$record_id %notin% ids.can.EDD.vacc  ~ "include no vax BL"
   ))
 describeFactors(data_use$include_BL)
 # D1&2 in preg           "2,071 (36.4%)"
@@ -609,49 +602,49 @@ describeFactors(data_use$include_BL)
 # Missing                "128 (2.3%)"
 
 ### then we need to look at self-reported timing for subsequent follow up and doses
+# 
+# data_use <- data_use %>%
+#   mutate(
+#     dose1_T_2mo = case_when(
+#       do2_timing2___2_2mo == 1 ~ "D1 during preg",
+#       do2_timing2___1_2mo == 1 ~ "D1 before preg",
+#       do2_timing2___3_2mo == 1 ~ "D1 post-partum/BF",
+#       do2_timing2___4_2mo == 1 ~ "D1 post-partum/Not BF",
+#       TRUE ~ NA_character_
+#     )
+#   )
 
-data_use <- data_use %>%
-  mutate(
-    dose1_T_2mo = case_when(
-      do2_timing2___2_2mo == 1 ~ "D1 during preg",
-      do2_timing2___1_2mo == 1 ~ "D1 before preg",
-      do2_timing2___3_2mo == 1 ~ "D1 post-partum/BF",
-      do2_timing2___4_2mo == 1 ~ "D1 post-partum/Not BF",
-      TRUE ~ NA_character_
-    )
-  )
+# describeFactors(data_use$dose1_T_2mo)
+# tab_xtab(data_use$include_BL, data_use$dose1_T_2mo)
+# 
+# data_use <- data_use %>%
+#   mutate(
+#     dose2_T_2mo = case_when(
+#       dt2_timing2___2_2mo == 1 ~ "D2 during preg",
+#       dt2_timing2___1_2mo == 1 ~ "D2 before preg",
+#       dt2_timing2___3_2mo == 1 ~ "D2 post-partum/BF",
+#       dt2_timing2___4_2mo == 1 ~ "D2 post-partum/Not BF",
+#       TRUE ~ NA_character_
+#     )
+#   )
 
-describeFactors(data_use$dose1_T_2mo)
-tab_xtab(data_use$include_BL, data_use$dose1_T_2mo)
-
-data_use <- data_use %>%
-  mutate(
-    dose2_T_2mo = case_when(
-      dt2_timing2___2_2mo == 1 ~ "D2 during preg",
-      dt2_timing2___1_2mo == 1 ~ "D2 before preg",
-      dt2_timing2___3_2mo == 1 ~ "D2 post-partum/BF",
-      dt2_timing2___4_2mo == 1 ~ "D2 post-partum/Not BF",
-      TRUE ~ NA_character_
-    )
-  )
-
-describeFactors(data_use$dose2_T_2mo)
-tab_xtab(data_use$include_BL, data_use$dose2_T_2mo)
-
-## nothing surprising here
-data_use <- data_use %>%
-  mutate(
-    dose3_T_2mo = case_when(
-      dt2_timing2_vb___2_2mo == 1 ~ "D3 during preg",
-      dt2_timing2_vb___1_2mo == 1 ~ "D3 before preg",
-      dt2_timing2_vb___3_2mo == 1 ~ "D3 post-partum/BF",
-      dt2_timing2_vb___4_2mo == 1 ~ "D3 post-partum/Not BF",
-      TRUE ~ NA_character_
-    )
-  )
-
-describeFactors(data_use$dose3_T_2mo)
-tab_xtab(data_use$include_BL, data_use$dose3_T_2mo) # 10 will need to be excluded as they indicated D3 before preg with D1 in preg (n=1), and D1pp (n = 8)
+# describeFactors(data_use$dose2_T_2mo)
+# tab_xtab(data_use$include_BL, data_use$dose2_T_2mo)
+# 
+# ## nothing surprising here
+# data_use <- data_use %>%
+#   mutate(
+#     dose3_T_2mo = case_when(
+#       dt2_timing2_vb___2_2mo == 1 ~ "D3 during preg",
+#       dt2_timing2_vb___1_2mo == 1 ~ "D3 before preg",
+#       dt2_timing2_vb___3_2mo == 1 ~ "D3 post-partum/BF",
+#       dt2_timing2_vb___4_2mo == 1 ~ "D3 post-partum/Not BF",
+#       TRUE ~ NA_character_
+#     )
+#   )
+# 
+# describeFactors(data_use$dose3_T_2mo)
+# tab_xtab(data_use$include_BL, data_use$dose3_T_2mo) # 10 will need to be excluded as they indicated D3 before preg with D1 in preg (n=1), and D1pp (n = 8)
 
 # data_use <- data_use %>%
 #   mutate(include_2mo = case_when(
@@ -664,7 +657,10 @@ tab_xtab(data_use$include_BL, data_use$dose3_T_2mo) # 10 will need to be exclude
 ###### Thinking about this in a different way. Can we determine when someone has entered data into the pregnancy outcomes survey?
 # View(data_use[, c("record_id", "pregnancy_outcomes_timestamp_BL", "pregnancy_outcomes_timestamp_2mo", "pregnancy_outcomes_timestamp_4mo", "pregnancy_outcomes_timestamp_6mo", "pregnancy_outcomes_timestamp_8mo", "pregnancy_outcomes_timestamp_10mo", "pregnancy_outcomes_timestamp_14mo")])
 
-data_use$num_preg_outcomes <- rowSums(!is.na(data_use[, c("pregnancy_outcomes_timestamp_BL", "pregnancy_outcomes_timestamp_2mo", "pregnancy_outcomes_timestamp_4mo", "pregnancy_outcomes_timestamp_6mo", "pregnancy_outcomes_timestamp_8mo", "pregnancy_outcomes_timestamp_10mo", "pregnancy_outcomes_timestamp_14mo")]))
+data_use$num_preg_outcomes <- rowSums(!is.na(data_use[, c("demographic_health_pregnancy_survey_timestamp_BL", "pregnancy_outcomes_timestamp_2mo",
+                                                          "pregnancy_outcomes_timestamp_4mo", "pregnancy_outcomes_timestamp_6mo",
+                                                          "pregnancy_outcomes_timestamp_8mo", "pregnancy_outcomes_timestamp_10mo",
+                                                          "pregnancy_outcomes_timestamp_14mo")]))
 
 ## only 1 or 0, this might help a lot
 
@@ -673,7 +669,7 @@ data_use$num_preg_outcomes <- rowSums(!is.na(data_use[, c("pregnancy_outcomes_ti
 data_use$which_time_preg_out <- c()
 
 for(i in 1:nrow(data_use)){
-  xx <- data_use[i, c("pregnancy_outcomes_timestamp_BL", "pregnancy_outcomes_timestamp_2mo", "pregnancy_outcomes_timestamp_4mo", "pregnancy_outcomes_timestamp_6mo", "pregnancy_outcomes_timestamp_8mo", "pregnancy_outcomes_timestamp_10mo", "pregnancy_outcomes_timestamp_14mo")]
+  xx <- data_use[i, c("demographic_health_pregnancy_survey_timestamp_BL", "pregnancy_outcomes_timestamp_2mo", "pregnancy_outcomes_timestamp_4mo", "pregnancy_outcomes_timestamp_6mo", "pregnancy_outcomes_timestamp_8mo", "pregnancy_outcomes_timestamp_10mo", "pregnancy_outcomes_timestamp_14mo")]
   # print(i)
   # print(which(!is.na(xx)))
   
@@ -721,15 +717,15 @@ data_use <- data_use %>%
   )
 
 describeFactors(data_use$dose1_T_4mo)
-tab_xtab(data_use$include_BL, data_use$dose1_T_4mo)
+#tab_xtab(data_use$include_BL, data_use$dose1_T_4mo)
 
 data_use <- data_use %>%
   mutate(
     dose2_T_4mo = case_when(
-      dt2_timing2___2_4mo == 1 ~ "D2 during preg",
-      dt2_timing2___1_4mo == 1 ~ "D2 before preg",
-      dt2_timing2___3_4mo == 1 ~ "D2 post-partum/BF",
-      dt2_timing2___4_4mo == 1 ~ "D2 post-partum/Not BF",
+      do2_timing2___2_4mo == 1 ~ "D2 during preg",
+      do2_timing2___1_4mo == 1 ~ "D2 before preg",
+      do2_timing2___3_4mo == 1 ~ "D2 post-partum/BF",
+      do2_timing2___4_4mo == 1 ~ "D2 post-partum/Not BF",
       TRUE ~ NA_character_
     )
   )
