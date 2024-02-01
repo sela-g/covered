@@ -1,0 +1,325 @@
+---
+title: "COVERED data cleanup"
+author: "Arianne Albert, PhD"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include = FALSE)
+
+library(lme4)
+library(MASS)
+library(multcomp)
+library(Gmisc)
+library(RColorBrewer)
+library(lubridate)
+library(Hmisc)
+library(broman)
+library(dplyr)
+library(ggplot2)
+library(mgcv)
+library(effects)
+library(here)
+library(tidyverse)
+library(margins)
+library(sjPlot)
+library(rcompanion)
+library(ggpubr)
+library(ggeffects)
+library(survey)
+library(knitr)
+library(lmerTest)
+library(emmeans)
+library(quantreg)
+library(zoo)
+library(sjstats)
+library(kableExtra)
+library(geepack)
+library(viridis)
+library(chron)
+library(ghibli)
+
+
+
+theme_set(
+  theme(text = element_text(size = 14))
+)
+
+```
+
+```{r data}
+data <- read.csv(here("data/MainSurveyDatabaseCa_DATA_2021-11-25_1025.csv"), stringsAsFactors = TRUE, strip.white = TRUE)
+```
+
+```{r withdrawals}
+
+describeFactors(data$withdraw_answer)
+data <- data[-which(data$withdraw_answer == 1), ]
+
+# also remove emails for privacy
+data <- data[, -grep("email", names(data))]
+
+```
+
+```{r split the data into arms}
+data_bl <- data[which(data$redcap_event_name == "baseline_arm_1"), ]
+data_2mo <- data[which(data$redcap_event_name == "followup_2_months_arm_1"), ]
+data_4mo <- data[which(data$redcap_event_name == "followup_4_months_arm_1"), ]
+
+
+
+```
+
+
+```{r merge all the follow up arms together}
+
+
+## clear out empty rows and columns
+### some columns are entirely "" rather than NA
+data_bl <- data_bl %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+  
+data_2mo <- data_2mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_4mo <- data_4mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_bl <- janitor::remove_empty(data_bl)
+data_2mo <- janitor::remove_empty(data_2mo)
+data_4mo <- janitor::remove_empty(data_4mo)
+
+# find variable names in common
+data_use <- left_join(data_bl, data_2mo, by = "record_id")
+data_use <- left_join(data_use, data_4mo, by = "record_id")
+
+```
+
+
+
+```{r index variable for vaccine timing BL}
+
+# create a verification variable for dose timing based on EDD, pregnancy outcome date, and vaccine dose date
+
+# For the safety and effectiveness data, we will need to divide these based on dose timing (in pregnancy or during breastfeeding or neither). This is asked in a few places including dose 1 and dose 2 modules but for those who didn’t check it, we need to look at EDD, pregnancy outcome date, and vaccine date to figure it out.
+
+# have kept before vs. after pregant separate
+
+## have you been vaccinated?
+describeFactors(data_use$bl4_dose1)
+
+## remove those with no vaccine information
+data_use <- data_use[-which(is.na(data_use$bl4_dose1)), ]
+
+describeFactors(data_use$bl5_dose1_timing)
+describeFactors(data_use$bl5_dose1_timing2___1)
+describeFactors(data_use$bl5_dose1_timing2___2)
+
+## figure out dose 1 timing
+
+data_use <- data_use %>% 
+  mutate(
+    dose1_T = case_when(
+      bl4_dose1 == 0 & bl1_currently_preg == 1 ~ "No vaccine pregnant",
+      bl4_dose1 == 0 & bl1_currently_preg == 0 ~ "No vaccine NOT pregnant",
+      bl5_dose1_timing == 1 | (bl5_dose1_timing2___1 == 1 & bl5_dose1_timing2___3 == 1) ~ "D1 before preg/BF",
+      bl5_dose1_timing == 1 | (bl5_dose1_timing2___1 == 1 & bl5_dose1_timing2___3 == 0) ~ "D1 before preg/Not BF",
+      bl5_dose1_timing == 2 | (bl5_dose1_timing2___2 == 1 & bl5_dose1_timing2___3 == 1) ~ "D1 during preg/BF",
+      bl5_dose1_timing == 2 | (bl5_dose1_timing2___2 == 1 & bl5_dose1_timing2___3 == 0) ~ "D1 during preg/Not BF",
+      bl5_dose1_timing == 3 | bl5_dose1_timing2___3 == 1 ~ "D1 post-partum/BF",
+      bl5_dose1_timing == 4 | bl5_dose1_timing2___4 == 1 ~ "D1 post-partum/Not BF"
+    )
+  )
+
+describeFactors(data_use$dose1_T)
+
+data_use <- data_use %>% 
+  mutate(
+    d1preg = case_when(
+      bl5_dose1_timing == 2 | bl5_dose1_timing2___2 == 1 ~ "D1 in preg",
+      TRUE ~ "D1 not in preg"
+    )
+  )
+describeFactors(data_use$d1preg)
+
+data_use <- data_use %>% 
+  mutate(
+    d2preg = case_when(
+      bl9_dose2_timing == 2 | bl9_dose2_timing2___2 == 1 ~ "D2 in preg",
+      TRUE ~ "D2 not in preg"
+    )
+  )
+describeFactors(data_use$d2preg)
+View(data_use[which(data_use$record_id == 1337),grep("other", names(data_use))])
+
+
+# describeFactors(data_use$bl5_dose1_timing_other)
+
+## need to manually fix the folks who put in "other" answers
+data_use$dose1_T[which(data_use$record_id %in% c(100, 186, 229, 272, 623, 1062, 1409, 1449, 1852, 2026, 2415, 2495, 2709, 2745, 2753, 2797, 2982, 3325))] <- "D1 during preg/BF"
+
+data_use$dose1_T[which(data_use$record_id %in% c(156, 3042, 3513))] <- "D1 before preg/BF"
+
+data_use$dose1_T[which(data_use$record_id %in% c(2697, 3114, 3410, 4099, 5317, 4774))] <- "D1 during preg/Not BF"
+
+data_use$dose1_T[which(data_use$record_id %in% c(4359))] <- "D1 post-partum/Not BF"
+
+## can we fill in the missings using dates?
+# View(data_use[which(is.na(data_use$dose1_T)), c("record_id", "bl1_currently_preg","bl2_breast_milk", "bl3_after_march",  "bl6_dose1_date", "bl1a_delivery_date")])
+
+## some of them, but some are going to need to stay missing. We also will not have BF information necessarily for these ones. Only 7 missing so leave these missing
+describeFactors(data_use$dose1_T)
+
+## make split dose 1 pregnant, not pregnant, bf, not bf variables as well
+data_use <- data_use %>% 
+  mutate(
+    dose1_preg = case_when(
+      bl4_dose1 == 0 & bl1_currently_preg == 1 ~ "No vaccine pregnant",
+      bl4_dose1 == 0 & bl1_currently_preg == 0 ~ "No vaccine NOT pregnant",
+      grepl("before preg", dose1_T) ~ "Before pregnancy",
+      grepl("during preg", dose1_T) ~ "During pregnancy",
+      grepl("post", dose1_T) ~ "post-partum"
+    )
+  )
+describeFactors(data_use$dose1_preg)
+
+data_use <- data_use %>% 
+  mutate(
+    dose1_BF = case_when(
+      bl4_dose1 == 0 & bl1_currently_preg == 1 ~ "No vaccine pregnant",
+      bl4_dose1 == 0 & bl1_currently_preg == 0 ~ "No vaccine NOT pregnant",
+      grepl("Not BF", dose1_T) ~ "Not BF",
+      grepl("BF", dose1_T) ~ "BF"
+    )
+  )
+describeFactors(data_use$dose1_BF)
+
+### dose 2 timing
+data_use <- data_use %>% 
+  mutate(
+    dose2_T = case_when(
+      bl4_dose1 == 0 & bl1_currently_preg == 1 ~ "No vaccine pregnant",
+      bl4_dose1 == 0 & bl1_currently_preg == 0 ~ "No vaccine NOT pregnant",
+      bl8_dose2 == 0 ~ "No D2",
+      bl9_dose2_timing == 1 | bl9_dose2_timing2___1 == 1 & bl9_dose2_timing2___3 == 1 ~ "D2 before preg/BF",
+      bl9_dose2_timing == 1 | bl9_dose2_timing2___1 == 1 & bl9_dose2_timing2___3 == 0 ~ "D2 before preg/Not BF",
+      bl9_dose2_timing == 2 | bl9_dose2_timing2___2 == 1 & bl9_dose2_timing2___3 == 1 ~ "D2 during preg/BF",
+      bl9_dose2_timing == 2 | bl9_dose2_timing2___2 == 1 & bl9_dose2_timing2___3 == 0 ~ "D2 during preg/Not BF",
+      bl9_dose2_timing == 3 | bl9_dose2_timing2___3 == 1 ~ "D2 post-partum/BF",
+      bl9_dose2_timing == 4 | bl9_dose2_timing2___4 == 1 ~ "D2 post-partum/Not BF"
+    )
+  )
+
+describeFactors(data_use$dose2_T)
+# describeFactors(data_use$bl9_dose2_timing_other)
+
+## need to manually fix the folks who put in "other" answers
+data_use$dose2_T[which(data_use$record_id %in% c(100, 186, 229, 272, 623, 1449, 1852, 2026, 2415, 2495, 2709, 2745, 2753, 3042, 3325))] <- "D2 during preg/BF"
+
+data_use$dose2_T[which(data_use$record_id %in% c(278, 833, 862, 973, 1661, 1746, 2090, 2249, 2968, 4698, 5261))] <- "D2 post-miscarriage/Not BF"
+
+data_use$dose2_T[which(data_use$record_id %in% c(156, 3513))] <- "D2 before preg/BF"
+
+data_use$dose2_T[which(data_use$record_id %in% c(614, 5361, 5753))] <- "D2 before preg/Not BF"
+
+data_use$dose2_T[which(data_use$record_id %in% c(5678))] <- "D2 during preg/Not BF"
+
+describeFactors(data_use$dose2_T)
+
+## make split dose 1 pregnant, not pregnant, bf, not bf variables as well
+data_use <- data_use %>% 
+  mutate(
+    dose2_preg = case_when(
+      bl4_dose1 == 0 & bl1_currently_preg == 1 ~ "No vaccine pregnant",
+      bl4_dose1 == 0 & bl1_currently_preg == 0 ~ "No vaccine NOT pregnant",
+      dose2_T == "No D2" ~ "No D2",
+      grepl("before preg", dose2_T) ~ "Before pregnancy",
+      grepl("during preg", dose2_T) ~ "During pregnancy",
+      grepl("post", dose2_T) ~ "post-partum/post-miscarriage"
+    )
+  )
+describeFactors(data_use$dose2_preg)
+
+data_use <- data_use %>% 
+  mutate(
+    dose2_BF = case_when(
+      bl4_dose1 == 0 & bl1_currently_preg == 1 ~ "No vaccine pregnant",
+      bl4_dose1 == 0 & bl1_currently_preg == 0 ~ "No vaccine NOT pregnant",
+      dose2_T == "No vaccine" ~ "No vaccine",
+      dose2_T == "No D2" ~ "No D2",
+      grepl("Not BF", dose2_T) ~ "Not BF",
+      grepl("BF", dose2_T) ~ "BF"
+    )
+  )
+describeFactors(data_use$dose2_BF)
+
+
+```
+
+```{r combine D1 and D2 information}
+
+# getDescriptionStatsBy(data_use$dose1_T, data_use$dose2_T) %>%
+# kbl()
+
+## just for pregnant or not as the BF seems v complicated
+## combine the post-miscarriage and post-partum
+data_use <- data_use %>% 
+  mutate(
+    All_dose_preg = case_when(
+      dose1_T == "No vaccine NOT pregnant" ~ "No vaccine NOT pregnant",
+      dose1_T == "No vaccine pregnant" ~ "No vaccine pregnant",
+      dose1_T == "D1 before preg/BF" & dose2_T == "No D2" ~ "D1 before preg no D2",
+      dose1_T == "D1 before preg/Not BF" & dose2_T == "No D2" ~ "D1 before preg no D2",
+      dose1_T == "D1 during preg/BF" & dose2_T == "No D2" ~ "D1 during preg no D2",
+      dose1_T == "D1 during preg/Not BF" & dose2_T == "No D2" ~ "D1 during preg no D2",
+      dose1_T == "D1 post-partum/BF" & dose2_T == "No D2" ~ "D1 post-partum no D2",
+      dose1_T == "D1 post-partum/Not BF" & dose2_T == "No D2" ~ "D1 post-partum no D2",
+      
+      grepl("before", dose1_T) & grepl("before", dose2_T) ~ "D1 & D2 before preg",
+      grepl("before", dose1_T) & grepl("during", dose2_T) ~ "D1 before preg & D2 during preg",
+      grepl("before", dose1_T) & grepl("post", dose2_T) ~ "D1 before preg & D2 post-partum",
+      
+      grepl("during", dose1_T) & grepl("before", dose2_T) ~ "D1 during preg & D2 before preg",
+      grepl("during", dose1_T) & grepl("during", dose2_T) ~ "D1 & D2 during preg",
+      grepl("during", dose1_T) & grepl("post", dose2_T) ~ "D1 during preg & D2 post-partum",
+      
+      grepl("post", dose1_T) & grepl("before", dose2_T) ~ "D1 post-partum & D2 before preg",
+      grepl("post", dose1_T) & grepl("during", dose2_T) ~ "D1 post-partum & D2 during preg",
+      grepl("post", dose1_T) & grepl("post", dose2_T) ~ "D1 & D2 post-partum"
+      
+    )
+  )
+
+describeFactors(data_use$All_dose_preg)
+
+# View(data_use[which(data_use$All_dose_preg %in% c("D1 during preg & D2 before preg")), c("record_id", "bl1_currently_preg", "fu1_pregnant.2mo", "fu1_pregnant.4mo", names(data_use)[grep("p1_situation", names(data_use))], "dose1_T", "bl5_dose1_timing_other", "dose2_T", "bl9_dose2_timing_other", "All_dose_preg")])
+
+
+
+
+```
+
+```{r change x and y}
+
+data_use <- data_use %>% 
+  mutate(
+    across(ends_with(".x"), ~gsub(".x", ".2mo", names(.)))
+  )
+
+names(data_use) <- gsub(".x", ".2mo", names(data_use))
+names(data_use) <- gsub(".y", ".4mo", names(data_use))
+names(data_use) <- gsub(".4mo_preg", "ly_preg", names(data_use))
+
+```
+
+```{r export}
+
+write.csv(data_use, here("data/2021-12-01_COVERED_DATA.csv"), row.names = FALSE)
+
+```
+

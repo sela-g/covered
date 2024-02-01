@@ -1,0 +1,634 @@
+---
+title: "2022-07-19_COVERED_VACCINE_INTENTIONS"
+author: "Arianne Albert, PhD"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include = TRUE)
+
+library(lme4)
+library(MASS)
+library(multcomp)
+library(Gmisc)
+library(RColorBrewer)
+library(lubridate)
+library(Hmisc)
+library(broman)
+library(dplyr)
+library(ggplot2)
+library(mgcv)
+library(effects)
+library(here)
+library(tidyverse)
+library(margins)
+library(sjPlot)
+library(rcompanion)
+library(ggpubr)
+library(ggeffects)
+library(survey)
+library(knitr)
+library(lmerTest)
+library(emmeans)
+library(quantreg)
+library(zoo)
+library(sjstats)
+library(kableExtra)
+library(geepack)
+library(viridis)
+library(chron)
+library(ghibli)
+library(psych)
+
+
+theme_set(
+  theme(text = element_text(size = 14))
+)
+
+```
+
+```{r data, include = F}
+data <- read.csv(here("data/MainSurveyDatabaseCa_DATA_2022-06-10_0902.csv"), stringsAsFactors = TRUE, strip.white = TRUE)
+```
+
+```{r data cleaning and inclusion, include = F}
+# exclude the non living in Canada
+describeFactors(data$redcap_event_name)
+describeFactors(data$covered_econsent_complete)
+describeFactors(data$bl16_country_res)
+describeFactors(data$bl16_country_res[which(data$redcap_event_name == "baseline_arm_1")])
+
+describeFactors(data$bl16_country_res[which(data$withdraw_answer == 1)])
+
+data <- data[-which(data$withdraw_answer == 1), ]
+
+ids.can <- data$record_id[which(data$bl16_country_res == 1)]
+
+length(unique(data$record_id))
+
+data_bl <- data[which(data$redcap_event_name == "baseline_arm_1" & data$record_id %in% ids.can), ]
+data_2mo <- data[which(data$redcap_event_name == "followup_2_months_arm_1" & data$record_id %in% ids.can), ]
+data_4mo <- data[which(data$redcap_event_name == "followup_4_months_arm_1" & data$record_id %in% ids.can), ]
+data_6mo <- data[which(data$redcap_event_name == "followup_6_months_arm_1" & data$record_id %in% ids.can), ]
+data_8mo <- data[which(data$redcap_event_name == "followup_8_months_arm_1" & data$record_id %in% ids.can), ]
+data_10mo <- data[which(data$redcap_event_name == "followup_10_months_arm_1" & data$record_id %in% ids.can), ]
+data_14mo <- data[which(data$redcap_event_name == "followup_14_months_arm_1" & data$record_id %in% ids.can), ]
+
+# followup_10_months_arm_1 "3,050 (10.5%)"
+# followup_14_months_arm_1 "413 (1.4%)"   
+# followup_2_months_arm_1  "4,993 (17.2%)"
+# followup_4_months_arm_1  "4,505 (15.6%)"
+# followup_6_months_arm_1  "4,196 (14.5%)"
+# followup_8_months_arm_1  "3,839 (13.3%)"
+
+## clear out empty rows and columns
+### some columns are entirely "" rather than NA
+data_bl <- data_bl %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+  
+data_2mo <- data_2mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_4mo <- data_4mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_6mo <- data_6mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_8mo <- data_8mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_10mo <- data_10mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_14mo <- data_14mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_bl <- janitor::remove_empty(data_bl)
+data_2mo <- janitor::remove_empty(data_2mo)
+data_4mo <- janitor::remove_empty(data_4mo)
+data_6mo <- janitor::remove_empty(data_6mo)
+data_8mo <- janitor::remove_empty(data_8mo)
+data_10mo <- janitor::remove_empty(data_10mo)
+data_14mo <- janitor::remove_empty(data_14mo)
+
+# find variable names in common
+colnames(data_bl) <- paste0(colnames(data_bl), "_BL")
+colnames(data_2mo) <- paste0(colnames(data_2mo), "_2mo")
+colnames(data_4mo) <- paste0(colnames(data_4mo), "_4mo")
+colnames(data_6mo) <- paste0(colnames(data_6mo), "_6mo")
+colnames(data_8mo) <- paste0(colnames(data_8mo), "_8mo")
+colnames(data_10mo) <- paste0(colnames(data_10mo), "_10mo")
+colnames(data_14mo) <- paste0(colnames(data_14mo), "_14mo")
+
+data_bl$record_id <- data_bl$record_id_BL
+data_2mo$record_id <- data_2mo$record_id_2mo
+data_4mo$record_id <- data_4mo$record_id_4mo
+data_6mo$record_id <- data_6mo$record_id_6mo
+data_8mo$record_id <- data_8mo$record_id_8mo
+data_10mo$record_id <- data_10mo$record_id_10mo
+data_14mo$record_id <- data_14mo$record_id_14mo
+
+
+data_use <- left_join(data_bl, data_2mo, by = "record_id")
+data_use <- left_join(data_use, data_4mo, by = "record_id")
+data_use <- left_join(data_use, data_6mo, by = "record_id")
+data_use <- left_join(data_use, data_8mo, by = "record_id")
+data_use <- left_join(data_use, data_10mo, by = "record_id")
+data_use <- left_join(data_use, data_14mo, by = "record_id")
+
+data <- data_use
+
+```
+
+```{r pull out vaccine attitudes surveys, include = F}
+length(which(is.na(data$vaccine_attitudes_survey_timestamp_BL))) # 2306 do not have vaccine attitudes survey
+data <- data[-which(is.na(data$vaccine_attitudes_survey_timestamp_BL)), ]
+
+
+data <- data %>% 
+  mutate(
+    likely = case_when(
+      v1_dose1_likely_BL %in% c(1, 2, 3) ~ "No",
+      v1_dose1_likely_BL %in% c(4, 5, 6) ~ "Yes"
+    )
+  )
+
+describeFactors(data$likely)
+# No      "333 (9.8%)"   
+# Yes     "3,042 (89.9%)"
+# Missing "7 (0.2%)"
+
+```
+
+```{r variable construction, include = F}
+## age
+data$bl14_dob_month_BL
+data$bl14_dob_year_BL
+
+data$dob <- paste(data$bl14_dob_year_BL, data$bl14_dob_month_BL, "01", sep = "-")
+data$dob <- as.Date(data$dob, format = "%Y-%m-%d")
+data$bl_completed_date_BL <- as.Date(as.character(data$bl_completed_date_BL), format = "%Y-%m-%d")
+# 
+summary(data$dob)
+
+data$bl14_dob_month_BL[data$bl14_dob_year_BL == "1992.06"& !is.na(data$bl14_dob_year_BL)] <- 06
+data$bl14_dob_year_BL[data$bl14_dob_year_BL == "1992.06"& !is.na(data$bl14_dob_year_BL)] <- 1992
+
+data$bl14_dob_month_BL[!is.na(data$bl14_dob_year_BL) & is.na(data$bl14_dob_month_BL)] <- 01
+data$dob[which(data$dob == "0026-03-01")] <- NA
+data$dob[data$bl14_dob_year_BL >= 2020 & !is.na(data$bl14_dob_year_BL)] <- NA
+data$dob <- as.Date(data$dob)
+
+data$m_age <- data$bl_completed_date_BL - data$dob
+data$m_age <- as.numeric(data$m_age)/365.25
+summary(data$m_age)
+data <- data %>% 
+  mutate(
+    age_cat = case_when(
+      m_age <25 ~ "20-24",
+      m_age <30 ~ "25-29",
+      m_age <35 ~ "30-34",
+      m_age <40 ~ "35-39",
+      m_age <45 ~ "40-44",
+      m_age >=45 ~ "45+"
+    )
+  )
+
+## ethnicity
+data$bl19_ethnicity___1_BL
+data <- data %>% 
+  mutate(
+    eth = case_when(
+      bl19_ethnicity___2_BL == 1 ~ "African/Caribbean/Black",
+      bl19_ethnicity___3_BL == 1 ~ "Hispanic/Latino/Latina",
+      bl19_ethnicity___4_BL == 1 ~ "East Asian",
+      bl19_ethnicity___5_BL == 1 ~ "South Asian",
+      bl19_ethnicity___6_BL == 1 ~ "South East Asian",
+      bl19_ethnicity___7_BL == 1 ~ "West Central Asian/Middle Eastern",
+      bl19_ethnicity___8_BL == 1 ~ "Indigenous originating from North America",
+      bl19_ethnicity___9_BL == 1 ~ "Indigneous originating from outside North America",
+      bl19_ethnicity___10_BL == 1 ~ "Mixed",
+      bl19_ethnicity___998_BL == 1 ~ "Other",
+      bl19_ethnicity___997_BL == 1 ~ "Prefer not to answer",
+      bl19_ethnicity___1_BL == 1 ~ "White/Caucasian"
+    )
+  )
+
+describeFactors(data$eth)
+data <- data %>% 
+  mutate(
+    eth2 = case_when(
+      eth %in% c("Indigenous originating from North America", "Indigneous originating from outside North America", "Mixed", "Other") ~ "Other",
+      eth == "Prefer not to answer" ~ NA_character_,
+      TRUE ~ eth
+    )
+  )
+describeFactors(data$eth2)
+data$eth2 <- factor(data$eth2, levels = c("White/Caucasian", "East Asian", "South Asian", "South East Asian", "Hispanic/Latino/Latina", "African/Caribbean/Black", "West Central Asian/Middle Eastern", "Other"))
+
+## gender
+describeFactors(data$bl20_gender_BL)
+describeFactors(data$bl20_gender_other_BL)
+
+data <- data %>% 
+  mutate(
+    gender = case_when(
+      bl20_gender_BL == 1 ~ "Woman",
+      !is.na(bl20_gender_other_BL) ~ "Nonbinary/Genderqueer",
+      bl20_gender_BL == 3 ~ "Nonbinary/Genderqueer",
+      bl20_gender_BL == 998 ~ "Nonbinary/Genderqueer",
+      TRUE ~ NA_character_
+    )
+  )
+describeFactors(data$gender)
+data$gender <- factor(data$gender, levels = c("Woman", "Nonbinary/Genderqueer"))
+
+## Country of birth
+describeFactors(data$bl15_country_born_BL)
+data$bl15_country_born_BL <- factor(data$bl15_country_born_BL, levels = c(1, 2, 3, 4, 998), labels = c("Canada", "Mexico", "United Kingdom", "United States of America", "Other"))
+
+## province of residence
+describeFactors(data$bl16a_province_res_BL)
+data$bl16a_province_res_BL <- factor(data$bl16a_province_res_BL, levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13), labels = c("AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YK"))
+
+data <- data %>% 
+  mutate(
+    prov_cat = case_when(
+      bl16a_province_res_BL %in% c("NB", "NL", "NS", "PE") ~ "Atlantic Provinces",
+      bl16a_province_res_BL %in% c("BC", "YK") ~ "BC/YK",
+      TRUE ~ as.character(bl16a_province_res_BL)
+    )
+  )
+
+## education
+describeFactors(data$bl23_education_BL)
+data$bl23_education_BL <- factor(data$bl23_education_BL, levels = c(1, 2, 3, 4, 5, 6, 7, 8, 997, 999), labels = c("Less than high school graduation", "High school graduation", "Trade certificate/Vocational", "Apprenticeship", "Non-University certificate or diploma", "Community college/CEGEP", "Bachelor's degree", "Graduate degree", NA, NA))
+## combine
+data$bl23_education_BL <- factor(data$bl23_education_BL)
+levels(data$bl23_education_BL)[c(1, 2)] <- "High school or less"
+levels(data$bl23_education_BL)[c(2, 3, 4, 5)] <- "Trade/Vocational/Apprenticeship/Certificate/College/CEGEP"
+
+## employment
+describeFactors(data$bl22_employ_BL)
+data$bl22_employ_BL <- factor(data$bl22_employ_BL, levels = c(1, 2, 3, 4, 5, 6, 7, 8, 997, 998), labels = c("Employed", "Enrolled in College/University", "Volunteering", "Homemaker", "On leave", "Retired", "Unemployed", "Unable to work", "Prefer not to answer", "Other"))
+
+# Lump unemployed, unable to work, and retired
+# Lump other, prefer not to answer, unknown, and homemaker
+
+data <- data %>% 
+  mutate(
+    employ_cat = case_when(
+      bl22_employ_BL %in% c("Unemployed", "Unable to work", "Retired") ~ "Not working",
+      bl22_employ_BL %in% c("Prefer not to answer", "Other", "Homemaker", "Volunteering") ~ "Other",
+      is.na(bl22_employ_BL) ~ "Other",
+      TRUE ~ as.character(bl22_employ_BL)
+    )
+  )
+
+describeFactors(data$employ_cat)
+
+```
+
+
+```{r TPB, include = F}
+# sum to form attitude scale
+# all attitudes anchored in same direction
+# v18 to v28
+
+a.ca <- alpha(data[, c("v18_serious_BL", "v19_serious_preg_BL", "v20_beneficial_BL", "v21_beneficial_preg_BL", "v22_tested_BL", "v23_tested_preg_BL", "v24_safe_BL", "v25_safe_preg_BL", "v26_safe_fetus_BL", "v27_effective_BL", "v28_effective_preg_BL")])
+a.ca
+#          lower alpha upper
+# Feldt     0.88  0.89  0.89 
+
+
+data <- data %>% 
+  rowwise() %>% 
+  mutate(ATT = sum(c(v18_serious_BL, v19_serious_preg_BL, v20_beneficial_BL, v21_beneficial_preg_BL, v22_tested_BL, v23_tested_preg_BL, v24_safe_BL, v25_safe_preg_BL, v26_safe_fetus_BL, v27_effective_BL, v28_effective_preg_BL)))
+summary(data$ATT)
+
+data.att <- data %>% 
+  ungroup() %>% 
+  summarise(across(c(v18_serious_BL:v28_effective_preg_BL, ATT), list(mean = mean, sd = sd), na.rm = TRUE))
+(data.att2 <- t(data.att))
+
+
+# direct subjective norms
+# v29 to v30
+describeFactors(data$v29_important_BL)
+describeFactors(data$v30_socialpressure_BL)
+
+snd.ca <- alpha(data[, c("v29_important_BL", "v30_socialpressure_BL")])
+snd.ca
+#          lower alpha upper
+# Feldt    -0.05  0.02  0.08
+# these 2 are not agreeing and should be reported separately
+
+data.dsn <- data %>% 
+  ungroup() %>% 
+  summarise(across(c(v29_important_BL:v30_socialpressure_BL), list(mean = mean, sd = sd), na.rm = TRUE))
+
+(data.dsn2 <- t(data.dsn))
+
+
+# perceived behavioural control
+# v39 to v41
+data$v39_easilyreceive_BL[which(data$v1_dose1_likely_BL != 6)]
+data$v40_choice_BL[which(data$v1_dose1_likely_BL != 6)]
+data$v41_control_BL[which(data$v1_dose1_likely_BL != 6)]
+
+pbc.ca <- alpha(data[which(data$v1_dose1_likely_BL != 6), c("v39_easilyreceive_BL", "v40_choice_BL", "v41_control_BL")])
+pbc.ca
+#          lower alpha upper
+# Feldt     0.53  0.59  0.65
+
+data <- data %>% 
+  rowwise() %>% 
+  mutate(PBC = sum(c(v39_easilyreceive_BL, v40_choice_BL, v41_control_BL)))
+
+summary(data$PBC)
+
+data.pbc <- data %>% 
+  ungroup() %>% 
+  summarise(across(c(v39_easilyreceive_BL, v40_choice_BL, v41_control_BL, PBC), list(mean = mean, sd = sd), na.rm = TRUE))
+
+(data.pbc2 <- t(data.pbc))
+
+# Indirect social norms
+# PHO
+# 
+table(data$v31_pho_approve_BL) 
+# recode to -2 to 2
+data$v31_pho_approve_BL <- data$v31_pho_approve_BL-3
+
+# then multiply by v32_pho_important
+data$SNI.PHO <- data$v31_pho_approve_BL * data$v32_pho_important_BL
+summary(data$SNI.PHO)
+
+# partner
+table(data$v33_partner_approve_BL)
+data$v33_partner_approve_BL <- replace(data$v33_partner_approve_BL, which(data$v33_partner_approve_BL == 999), NA)
+# recode to -2 to 2
+data$v33_partner_approve_BL <- data$v33_partner_approve_BL-3
+
+# then multiply by v34_partner_important
+# table(data$v34_partner_important)
+data$v34_partner_important_BL <- replace(data$v34_partner_important_BL, which(data$v34_partner_important_BL == 999), NA)
+
+data$SNI.PART <- data$v33_partner_approve_BL * data$v34_partner_important_BL
+summary(data$SNI.PART)
+
+
+# Friends/fam
+# table(data$v35_fam_approve)
+# recode to -2 to 2
+data$v35_fam_approve_BL <- data$v35_fam_approve_BL-3
+
+# then multiply by v36_fam_important
+table(data$v36_fam_important_BL)
+
+data$SNI.FRI <- data$v35_fam_approve_BL * data$v36_fam_important_BL
+summary(data$SNI.FRI)
+
+
+# prenatal care provider
+# table(data$v37_prenatal_approve)
+data$v37_prenatal_approve_BL <- replace(data$v37_prenatal_approve_BL, which(data$v37_prenatal_approve_BL == 999), NA)
+# recode to -2 to 2
+data$v37_prenatal_approve_BL <- data$v37_prenatal_approve_BL-3
+
+# then multiply by v38_prenatal_important
+# table(data$v38_prenatal_important)
+data$v38_prenatal_important_BL <- replace(data$v38_prenatal_important_BL, which(data$v38_prenatal_important_BL == 999), NA)
+
+data$SNI.PRE <- data$v37_prenatal_approve_BL * data$v38_prenatal_important_BL
+summary(data$SNI.PRE)
+
+
+sn.ca <- alpha(data[, c("SNI.PHO", "SNI.PART", "SNI.FRI", "SNI.PRE")])
+sn.ca
+#          lower alpha upper
+# Feldt     0.58   0.6  0.62
+
+data <- data %>% 
+  rowwise() %>% 
+  mutate(SNI.TOT = sum(SNI.PHO, SNI.PART, SNI.FRI, SNI.PRE))
+
+summary(data$SNI.TOT)
+ #   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+ # -34.00   21.00   30.00   26.96   35.00   40.00     191 
+
+data.isn <- data %>% 
+  ungroup() %>% 
+  summarise(across(c(v31_pho_approve_BL:v38_prenatal_important_BL, SNI.PHO, SNI.PART, SNI.FRI, SNI.PRE, SNI.TOT) , list(mean = mean, sd = sd), na.rm = TRUE))
+
+(data.isn2 <- t(data.isn))
+
+
+```
+
+
+```{r WHO scales, include = F}
+# WHO scale
+# new vaccine more risk, concerned about adverse effects 8 and 9 = risks 
+
+data$v16_risks_BL
+data$v17_effects_BL
+
+# get the average scores
+
+data <- data %>% 
+  rowwise() %>% 
+  mutate(VHS_risk = mean(c(v16_risks_BL, v17_effects_BL), na.rm = TRUE))
+
+summary(data$VHS_risk)
+
+
+
+```
+
+
+```{r table by vaccine intentions, include = F}
+
+getT1Stat <- function(varname, digits=0, useNA = "ifany"){
+  getDescriptionStatsBy(data[, varname], 
+                        data$likely, 
+                        add_total_col=TRUE,
+                        show_all_values=TRUE, 
+                        hrzl_prop=TRUE,
+                        statistics = TRUE,
+                        html=TRUE, 
+                        useNA = useNA,
+                        digits=digits,
+                        header_count = TRUE)
+}
+
+data$likely <- relevel(factor(data$likely), ref = "Yes")
+
+table_data <- list()
+
+data <- as.data.frame(data)
+
+# Get the basic stats
+table_data[["Age"]] <- getT1Stat("age_cat", 1)
+table_data[["Ethnicity"]] <- getT1Stat("eth2", 1)
+table_data[["Gender"]] <- getT1Stat("gender", 1)
+table_data[["Province of residence"]] <- getT1Stat("prov_cat", 1)
+table_data[["Education"]] <- getT1Stat("bl23_education_BL", 1)
+table_data[["Employment"]] <- getT1Stat("employ_cat", 1)
+table_data[["WHO scale: Vaccine Risks"]] <- getT1Stat("VHS_risk", 1)
+table_data[["Attitudes to COVID-19 Vaccine"]] <- getT1Stat("ATT", 1)
+table_data[["Perceived Behavioural Control"]] <- getT1Stat("PBC", 1)
+table_data[["Direct Social Norms: Most people who are important to me would think that I should receive the COVID-19 vaccine while pregnant/lactating"]] <- getT1Stat("v29_important_BL", 1)
+table_data[["Direct Social Norms: I feel under social pressure to receive a COVID-19 vaccine while pregnant/lactating"]] <- getT1Stat("v30_socialpressure_BL", 1)
+table_data[["Indirect Social Norms: Provincial Health Officer"]] <- getT1Stat("SNI.PHO", 1)
+table_data[["Indirect Social Norms: Partner"]] <- getT1Stat("SNI.PART", 1)
+table_data[["Indirect Social Norms: Friends & Family"]] <- getT1Stat("SNI.FRI", 1)
+table_data[["Indirect Social Norms: Prenatal care provider"]] <- getT1Stat("SNI.PRE", 1)
+
+
+
+# Now merge everything into a matrix
+# and create the rgroup & n.rgroup variabels
+rgroup <- c()
+n.rgroup <- c()
+output_data <- NULL
+for (varlabel in names(table_data)) {
+  output_data <- rbind(output_data, 
+                       table_data[[varlabel]])
+  rgroup <- c(rgroup, 
+              varlabel)
+  n.rgroup <- c(n.rgroup, 
+                nrow(table_data[[varlabel]]))
+}
+ 
+# Add a column spanner for the columns
+cgroup <- c("", "Likely to receive COVID-19 vaccine")
+n.cgroup <- c(1, 3)
+colnames(output_data) <- gsub("[ ]*Likely to receive COVID-19 vaccine", "", colnames(output_data))
+ 
+# htmlTable::htmlTable(output_data, align = "rrrr",
+#           rgroup = rgroup, n.rgroup = n.rgroup, 
+#           css.rgroup.sep = "", 
+#           cgroup = cgroup,
+#           n.cgroup = n.cgroup,
+#           rowlabel = "", 
+#           caption = "", 
+#           ctable = TRUE)  %>% htmltools::html_print()
+
+
+
+```
+
+## Methods and Results
+Likelihood of receiving vaccine was assessed using the question: As COVID-19 vaccines have been recommended for pregnant and lactating women and people, how likely are you to receive it?
+
+Answers of 1-3 (very unlikely to neutral) were considered as not likely
+Answers of 4-6 (somewhat likely, very likely, and already received) were considered as likely
+
+There were 3,382 participants who opened the vaccine attitudes survey. 3,375 of them completed the intention question and are included in the summaries below. However, the breakdown of answers indicate that the vast majority had already received at least one dose (option 6) at the time of the survey:
+
+`r kbl(table(data$v1_dose1_likely_BL, useNA = "ifany"))`
+
+<br>
+
+Of the demographic variables, education was significantly associated with intention to vaccinate, with those with graduate degrees being less likely to not intend to get the vaccine (8%) compared to Bachelor's degree and less (~11%). Or more likely to intend/have received the vaccine (92% vs ~89%). All of the vaccine theory of planned behaviour variables, except perceived behavioural control, were significantly associated with intention to vaccinate. Of note, perceived behavioural control was only calculated for those who had not yet received a vaccine and so the sample size was much smaller.
+
+```{r table 1, include = T}
+htmlTable::htmlTable(output_data, align = "rrrr",
+          rgroup = rgroup, n.rgroup = n.rgroup, 
+          css.rgroup.sep = "", 
+          cgroup = cgroup,
+          n.cgroup = n.cgroup,
+          rowlabel = "", 
+          caption = "", 
+          ctable = TRUE) 
+```
+
+```{r model, include = F}
+# logistic regression models
+
+mod1 <- glm(likely ~ bl23_education_BL, data = data, family = binomial)
+summary(mod1)
+drop1(mod1, test = "Chi")
+
+edu.ph <- emmeans(mod1, specs = "bl23_education_BL", contr = "pairwise")
+
+
+mod2 <- glm(likely ~ VHS_risk, data = data, family = binomial)
+summary(mod2)
+drop1(mod2, test = "Chi")
+
+mod3 <- glm(likely ~ ATT, data = data, family = binomial)
+summary(mod3)
+drop1(mod3, test = "Chi")
+
+mod4 <- glm(likely ~ v29_important_BL, data = data, family = binomial)
+summary(mod4)
+drop1(mod4, test = "Chi")
+
+mod5 <- glm(likely ~ v30_socialpressure_BL, data = data, family = binomial)
+summary(mod5)
+drop1(mod5, test = "Chi")
+
+mod6 <- glm(likely ~ SNI.PHO, data = data, family = binomial)
+summary(mod6)
+drop1(mod6, test = "Chi")
+
+mod7 <- glm(likely ~ SNI.PART, data = data, family = binomial)
+summary(mod7)
+drop1(mod7, test = "Chi")
+
+mod8 <- glm(likely ~ SNI.FRI, data = data, family = binomial)
+summary(mod8)
+drop1(mod8, test = "Chi")
+
+mod9 <- glm(likely ~ SNI.PRE, data = data, family = binomial)
+summary(mod9)
+drop1(mod9, test = "Chi")
+
+
+mod_all <- glm(likely ~ bl23_education_BL + VHS_risk + ATT + v29_important_BL + v30_socialpressure_BL + SNI.PHO + SNI.PART + SNI.FRI + SNI.PRE, data = data, family = binomial)
+
+summary(mod_all)
+
+```
+
+<br> 
+
+I ran logistic regressions of all of the singificant bivariable relationships and included all into a multivariable model. For education, post-hoc pairwise Tukey's tests confirm that the only pairwise significant difference was between graduate degree and bachelor's degree (adjusted p = 0.02), likely due to smaller sample size in the other education categories. 
+
+
+```{r regression tables, include = TRUE}
+
+tab_model(mod1)
+
+tab_model(mod2)
+
+tab_model(mod3)
+
+tab_model(mod4)
+
+tab_model(mod5)
+
+tab_model(mod6)
+
+tab_model(mod7)
+
+tab_model(mod8)
+
+tab_model(mod9)
+
+tab_model(mod_all)
+
+```
+

@@ -1,0 +1,4040 @@
+---
+title: "COVERED lactation"
+author: "Arianne Albert, PhD"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include = TRUE)
+setwd("/Users/mac/Desktop/RID/covered/suraya_ianna")
+library(lme4)
+library(MASS)
+library(multcomp)
+library(Gmisc)
+library(RColorBrewer)
+library(lubridate)
+library(Hmisc)
+library(broman)
+library(dplyr)
+library(ggplot2)
+library(mgcv)
+library(effects)
+library(here)
+library(tidyverse)
+library(margins)
+library(sjPlot)
+library(rcompanion)
+library(ggpubr)
+library(ggeffects)
+library(survey)
+library(knitr)
+library(lmerTest)
+library(emmeans)
+library(quantreg)
+library(zoo)
+library(sjstats)
+library(kableExtra)
+library(geepack)
+library(viridis)
+library(chron)
+library(ghibli)
+
+
+
+theme_set(
+  theme(text = element_text(size = 14))
+)
+
+```
+
+```{r data}
+data <- read.csv("MainSurveyDatabaseCa_DATA_2022-06-10_0902.csv", stringsAsFactors = TRUE, strip.white = TRUE)
+```
+
+```{r data cleaning and inclusion, include = F}
+
+data$fu1_pregnant_2mo
+data$fu1_pregnant_4mo
+data$fu1b_pregnant_6mo
+
+# aaa_review_this <- data %>% group_by(vacc_in_preg) %>% summarise(n = n(), tot_na = sum(is.na(fu1b_pregnant_6mo)), prop_na =sum(is.na(fu1b_pregnant_6mo))/n() )
+
+data$fu1b_pregnant_8mo
+
+
+
+# exclude the non living in Canada
+describeFactors(data$redcap_event_name)
+describeFactors(data$covered_econsent_complete)
+describeFactors(data$bl16_country_res)
+describeFactors(data$bl16_country_res[which(data$redcap_event_name == "baseline_arm_1")])
+
+describeFactors(data$bl16_country_res[which(data$withdraw_answer == 1)])
+
+data <- data[-which(data$withdraw_answer == 1), ]
+
+ids.can <- data$record_id[which(data$bl16_country_res == 1)]
+
+length(unique(data$record_id))
+
+data_bl <- data[which(data$redcap_event_name == "baseline_arm_1" & data$record_id %in% ids.can), ]
+data_2mo <- data[which(data$redcap_event_name == "followup_2_months_arm_1" & data$record_id %in% ids.can), ]
+data_4mo <- data[which(data$redcap_event_name == "followup_4_months_arm_1" & data$record_id %in% ids.can), ]
+data_6mo <- data[which(data$redcap_event_name == "followup_6_months_arm_1" & data$record_id %in% ids.can), ]
+data_8mo <- data[which(data$redcap_event_name == "followup_8_months_arm_1" & data$record_id %in% ids.can), ]
+data_10mo <- data[which(data$redcap_event_name == "followup_10_months_arm_1" & data$record_id %in% ids.can), ]
+data_14mo <- data[which(data$redcap_event_name == "followup_14_months_arm_1" & data$record_id %in% ids.can), ]
+
+# followup_10_months_arm_1 "3,050 (10.5%)"
+# followup_14_months_arm_1 "413 (1.4%)"   
+# followup_2_months_arm_1  "4,993 (17.2%)"
+# followup_4_months_arm_1  "4,505 (15.6%)"
+# followup_6_months_arm_1  "4,196 (14.5%)"
+# followup_8_months_arm_1  "3,839 (13.3%)"
+
+## clear out empty rows and columns
+### some columns are entirely "" rather than NA
+data_bl <- data_bl %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+  
+data_2mo <- data_2mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_4mo <- data_4mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_6mo <- data_6mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_8mo <- data_8mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_10mo <- data_10mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_14mo <- data_14mo %>% 
+  mutate(across(where(is.factor), ~as.character(.x))) %>% 
+  mutate(across(where(is.character), ~ifelse(.x == "", NA_character_, .)))
+
+data_bl <- janitor::remove_empty(data_bl)
+data_2mo <- janitor::remove_empty(data_2mo)
+data_4mo <- janitor::remove_empty(data_4mo)
+data_6mo <- janitor::remove_empty(data_6mo)
+data_8mo <- janitor::remove_empty(data_8mo)
+data_10mo <- janitor::remove_empty(data_10mo)
+data_14mo <- janitor::remove_empty(data_14mo)
+
+# find variable names in common
+colnames(data_bl) <- paste0(colnames(data_bl), "_BL")
+colnames(data_2mo) <- paste0(colnames(data_2mo), "_2mo")
+colnames(data_4mo) <- paste0(colnames(data_4mo), "_4mo")
+colnames(data_6mo) <- paste0(colnames(data_6mo), "_6mo")
+colnames(data_8mo) <- paste0(colnames(data_8mo), "_8mo")
+colnames(data_10mo) <- paste0(colnames(data_10mo), "_10mo")
+colnames(data_14mo) <- paste0(colnames(data_14mo), "_14mo")
+
+data_bl$record_id <- data_bl$record_id_BL
+data_2mo$record_id <- data_2mo$record_id_2mo
+data_4mo$record_id <- data_4mo$record_id_4mo
+data_6mo$record_id <- data_6mo$record_id_6mo
+data_8mo$record_id <- data_8mo$record_id_8mo
+data_10mo$record_id <- data_10mo$record_id_10mo
+data_14mo$record_id <- data_14mo$record_id_14mo
+
+
+data_use <- left_join(data_bl, data_2mo, by = "record_id")
+data_use <- left_join(data_use, data_4mo, by = "record_id")
+data_use <- left_join(data_use, data_6mo, by = "record_id")
+data_use <- left_join(data_use, data_8mo, by = "record_id")
+data_use <- left_join(data_use, data_10mo, by = "record_id")
+data_use <- left_join(data_use, data_14mo, by = "record_id")
+
+data <- data_use
+
+```
+
+
+
+```{r starting again with vaccine timing}
+## check to see how many people had all three doses during pregnancy manually:
+## dose 1 during pregnancy checked using: 
+
+## BASELINE
+sum(data_use$do2_timing_BL == 2, na.rm = TRUE) 
+## 1601 selected "first dose during pregnancy" using the checklist/ radio
+sum(data_use$do2_timing2___2_BL)
+## 1383 selected "first dose during pregnancy" using the other (radio/ checklist, not sure which)
+
+##2 Month
+sum(data_use$do2_timing2___2_2mo,na.rm = TRUE)
+## 33 selected "first dose during pregnancy" using the other (radio/ checklist, not sure which) after 2 months
+
+## 4 month
+sum(data_use$do2_timing2___2_4mo, na.rm = TRUE) 
+# 3 selected it after 4 months
+
+## 6 months
+sum(data_use$do2_timing2___2_6mo, na.rm = TRUE) 
+#1 selected it after 6 months
+
+
+## 8 months
+sum(data_use$do2_timing2___2_8mo, na.rm = TRUE) 
+#0 selected it after 8 months
+
+## 10 months
+sum(data_use$do2_timing2___2_10mo, na.rm = TRUE) 
+#0 selected it after 10 months
+
+
+## 14 months
+sum(data_use$do2_timing2___2_14mo, na.rm = TRUE) 
+#0 selected it after 14 months
+
+
+
+
+sum(data_use$dt2_timing_BL == 2, na.rm = TRUE) 
+## 1211 selected "second dose during pregnancy" using the checklist/ radio
+sum(data_use$dt2_timing2___2_BL)
+## 1230 selected "second dose during pregnancy" using the other (radio/ checklist, not sure which)
+
+sum(data_use$dt2_timing_vb == 2, na.rm = TRUE)
+## - selected 
+sum(data_use$dt2_timing2_vb___2_BL)
+## 300 had booster dose during pregnancy 
+
+
+## checking all three:
+# sum(data_use$do2_timing2___2_BL*data_use$dt2_timing2___2_BL*data_use$dt2_timing2_vb___2_BL)
+
+
+data_use <- data_use %>%
+  mutate(
+    had_dose_1 = case_when(
+      do2_timing_BL == 2 ~ TRUE,
+      do2_timing2___2_BL == 1  ~ TRUE,
+      do2_timing2___2_2mo  == 1 ~ TRUE,
+      do2_timing2___2_4mo  == 1 ~ TRUE,
+      do2_timing2___2_6mo == 1  ~ TRUE,
+      do2_timing2___2_8mo  == 1 ~ TRUE,
+      do2_timing2___2_10mo  == 1 ~ TRUE,
+      do2_timing2___2_14mo  == 1 ~ TRUE
+    )
+  )
+
+data_use <- data_use %>%
+  mutate(
+    had_dose_2 = case_when(
+      dt2_timing_BL == 2 ~ TRUE,
+      dt2_timing2___2_BL == 1  ~ TRUE,
+      dt2_timing2___2_2mo  == 1 ~ TRUE,
+      dt2_timing2___2_4mo  == 1 ~ TRUE,
+      dt2_timing2___2_6mo == 1  ~ TRUE,
+      dt2_timing2___2_8mo  == 1 ~ TRUE,
+      dt2_timing2___2_10mo  == 1 ~ TRUE,
+      dt2_timing2___2_14mo  == 1 ~ TRUE
+    )
+  )
+
+data_use <- data_use %>%
+  mutate(
+    had_dose_3 = case_when(
+      dt2_timing2_vb___2_BL == 1  ~ TRUE,
+      dt2_timing2_vb___2_2mo  == 1 ~ TRUE,
+      dt2_timing2_vb___2_4mo  == 1 ~ TRUE,
+      dt2_timing2_vb___2_6mo == 1  ~ TRUE,
+      dt2_timing2_vb___2_8mo  == 1 ~ TRUE,
+      dt2_timing2_vb___2_10mo  == 1 ~ TRUE,
+      dt2_timing2_vb___2_14mo  == 1 ~ TRUE
+    )
+  )
+
+
+#### WHO HAD ALL 3 DOSES DURING PREGNANCY (153 cases TOTAL)
+data_use$all_3_during_preg <- data_use$had_dose_1*data_use$had_dose_2*data_use$had_dose_3
+
+data_use <- data_use %>%
+  mutate(
+    new_preg = case_when(
+      data_use$fu1d_confirmnewpreg_2mo == 1  ~ TRUE,
+      data_use$fu1d_confirmnewpreg_4mo == 1  ~ TRUE,
+      data_use$fu1d_confirmnewpreg_6mo == 1  ~ TRUE,
+      data_use$fu1d_confirmnewpreg_8mo == 1  ~ TRUE,
+      data_use$fu1d_confirmnewpreg_10mo == 1  ~ TRUE,
+      data_use$fu1d_confirmnewpreg_14mo == 1  ~ TRUE
+    )
+  )
+
+summary(as.factor(data_use$new_preg))
+
+sum(data_use$new_preg*data_use$all_3_during_preg, na.rm = TRUE)
+
+data_use <- data_use %>%
+  mutate(
+    dose_3_date = case_when(
+      !is.na(data_use$dt3_date_vb_BL)  ~ dt3_date_vb_BL,
+      !is.na(data_use$dt3_date_vb_2mo) ~ dt3_date_vb_2mo,
+      !is.na(data_use$dt3_date_vb_4mo) ~ dt3_date_vb_4mo,
+      !is.na(data_use$dt3_date_vb_6mo) ~ dt3_date_vb_6mo,
+      !is.na(data_use$dt3_date_vb_8mo) ~ dt3_date_vb_8mo,
+      !is.na(data_use$dt3_date_vb_10mo)  ~ dt3_date_vb_10mo,
+      !is.na(data_use$dt3_date_vb_14mo) ~ dt3_date_vb_14mo
+    )
+  )
+
+
+data_use <- data_use %>%
+  mutate(
+    dose_2_date = case_when(
+      !is.na(data_use$dt3_date_BL)  ~ dt3_date_BL,
+      !is.na(data_use$dt3_date_2mo) ~ dt3_date_2mo,
+      !is.na(data_use$dt3_date_4mo) ~ dt3_date_4mo,
+      !is.na(data_use$dt3_date_6mo) ~ dt3_date_6mo,
+      !is.na(data_use$dt3_date_8mo) ~ dt3_date_8mo
+    )
+  )
+
+
+data_use <- data_use %>%
+  mutate(
+    dose_1_date = case_when(
+      !is.na(data_use$do3_date_BL)  ~ do3_date_BL,
+      !is.na(data_use$do3_date_2mo) ~ do3_date_2mo,
+      !is.na(data_use$do3_date_4mo) ~ do3_date_4mo,
+      !is.na(data_use$do3_date_6mo) ~ do3_date_6mo,
+      !is.na(data_use$do3_date_8mo) ~ do3_date_8mo
+    )
+  )
+
+
+data_use$dose_1_date <- as.Date(data_use$dose_1_date)
+data_use$dose_2_date <- as.Date(data_use$dose_2_date)
+data_use$dose_3_date <- as.Date(data_use$dose_3_date)
+
+## ISOLATE THOSE WHO REPORTED GETTING ALL 3 DOSES DURING PREGNANCY AND LOOK AT THEIR DATES:
+
+
+all_3_data <- data_use %>% filter(all_3_during_preg == TRUE)
+dim(all_3_data)
+
+
+all_3_data <- all_3_data %>%
+  mutate(
+    dose_3_date = case_when(
+      !is.na(all_3_data$dt3_date_vb_BL)  ~ dt3_date_vb_BL,
+      !is.na(all_3_data$dt3_date_vb_2mo) ~ dt3_date_vb_2mo,
+      !is.na(all_3_data$dt3_date_vb_4mo) ~ dt3_date_vb_4mo,
+      !is.na(all_3_data$dt3_date_vb_6mo) ~ dt3_date_vb_6mo,
+      !is.na(all_3_data$dt3_date_vb_8mo) ~ dt3_date_vb_8mo,
+      !is.na(all_3_data$dt3_date_vb_10mo)  ~ dt3_date_vb_10mo,
+      !is.na(all_3_data$dt3_date_vb_14mo) ~ dt3_date_vb_14mo
+    )
+  )
+
+
+all_3_data <- all_3_data %>%
+  mutate(
+    dose_2_date = case_when(
+      !is.na(all_3_data$dt3_date_BL)  ~ dt3_date_BL,
+      !is.na(all_3_data$dt3_date_2mo) ~ dt3_date_2mo,
+      !is.na(all_3_data$dt3_date_4mo) ~ dt3_date_4mo,
+      !is.na(all_3_data$dt3_date_6mo) ~ dt3_date_6mo,
+      !is.na(all_3_data$dt3_date_8mo) ~ dt3_date_8mo
+    )
+  )
+
+
+all_3_data <- all_3_data %>%
+  mutate(
+    dose_1_date = case_when(
+      !is.na(all_3_data$do3_date_BL)  ~ do3_date_BL,
+      !is.na(all_3_data$do3_date_2mo) ~ do3_date_2mo,
+      !is.na(all_3_data$do3_date_4mo) ~ do3_date_4mo,
+      !is.na(all_3_data$do3_date_6mo) ~ do3_date_6mo,
+      !is.na(all_3_data$do3_date_8mo) ~ do3_date_8mo
+    )
+  )
+
+
+all_3_data$dose_1_date <- as.Date(all_3_data$dose_1_date)
+all_3_data$dose_2_date <- as.Date(all_3_data$dose_2_date)
+all_3_data$dose_3_date <- as.Date(all_3_data$dose_3_date)
+
+sum(all_3_data$dose_2_date == all_3_data$dose_3_date, na.rm = TRUE)
+
+all_3_data$date_diff <- all_3_data$dose_3_date - all_3_data$dose_1_date
+all_3_data$date_diff_weeks <- all_3_data$date_diff/7
+library(ggplot2)
+ggplot(all_3_data, aes(x = date_diff_weeks,  fill = new_preg)) + geom_histogram()
+
+unique(all_3_data$dt3_date_vb_BL) ## "booster" dose date
+unique(all_3_data$dt3_date_vb_2mo) ## "booster" dose date
+unique(all_3_data$dt3_date_vb_4mo) ## "booster" dose date
+unique(all_3_data$dt3_date_vb_4mo) ## "booster" dose date
+
+
+all_3_data$do3_date_BL ## first dose date
+all_3_data$dt3_date_BL ## second dose date
+
+sum(all_3_data$date_diff_weeks <= 0, na.rm = TRUE)
+sum(all_3_data$date_diff_weeks >= 0 & all_3_data$date_diff_weeks < 20, na.rm = TRUE)
+sum(all_3_data$date_diff_weeks >= 20 & all_3_data$date_diff_weeks < 40, na.rm = TRUE)
+sum(all_3_data$date_diff_weeks >= 40, na.rm = TRUE)
+sum(is.na(all_3_data$date_diff_weeks))
+
+
+
+```
+
+
+
+```{r starting again with vaccine timing2}
+data_use <- data_use %>% 
+  mutate(
+    dose1_T = case_when(
+      bl4_dose1_BL == 0 & bl1_currently_preg_BL == 1 ~ "No vaccine pregnant",
+      bl4_dose1_BL == 0 & bl1_currently_preg_BL == 0 ~ "No vaccine NOT pregnant",
+      do2_timing_BL == 2 | do2_timing2___2_BL == 1 ~ "D1 during preg",
+      do2_timing_BL == 1 | do2_timing2___1_BL == 1 ~ "D1 before preg",
+      do2_timing_BL == 3 | do2_timing2___3_BL == 1 ~ "D1 post-partum/BF",
+      do2_timing_BL == 4 | do2_timing2___4_BL == 1 ~ "D1 post-partum/Not BF"
+    )
+  )
+
+describeFactors(data_use$dose1_T)
+# # View(data_use[which(data_use$dose1_T == "D1 before preg"), c("record_id", "dose1_preg_ga",  "bl4_dose1", "bl1_currently_preg", "bl5_dose1_timing", "do2_timing", "bl5_dose1_timing2___1", "do2_timing2___1", "bl5_dose1_timing2___2", "do2_timing2___2", "bl5_dose1_timing2___3", "do2_timing2___3", "bl5_dose1_timing2___4", "do2_timing2___4", "do2_timing_other", "bl5_dose1_timing_other")])
+
+data_use <- data_use %>% 
+   mutate(
+    dose2_T = case_when(
+      dose1_T == "No vaccine NOT pregnant" ~ "No vaccine NOT pregnant",
+      dose1_T == "No vaccine pregnant" ~ "No vaccine pregnant",
+      # bl8_dose2 == 0 & bl1_currently_preg == 1 ~ "No vaccine pregnant",
+      # bl8_dose2 == 0 & bl1_currently_preg == 0 ~ "No vaccine NOT pregnant",
+      bl8_dose2_BL == 0 ~ "No D2",
+      dt2_timing_BL == 2 | (dt2_timing2___2_BL == 1) ~ "D2 during preg",
+      dt2_timing_BL == 1 | (dt2_timing2___1_BL == 1) ~ "D2 before preg",
+      dt2_timing_BL == 3 | dt2_timing2___3_BL == 1 ~ "D2 post-partum/BF",
+      dt2_timing_BL == 4 | dt2_timing2___4_BL == 1 ~ "D2 post-partum/Not BF"
+    )
+  )
+
+describeFactors(data_use$dose2_T)
+
+tab_xtab(data_use$dose1_T, data_use$dose2_T)
+
+# if we just stick to the baseline data, how many had pregnancy outcomes?
+## pick out the clear ones
+data_use <- data_use %>% 
+  mutate(
+    include = case_when(
+      dose1_T == "D1 during preg" & dose2_T == "D2 during preg" ~ "include",
+      dose1_T == "D1 during preg" & dose2_T == "D2 post-partum/BF" ~ "include",
+      dose1_T == "D1 during preg" & dose2_T == "D2 post-partum/Not BF" ~ "include",
+      dose1_T == "D1 during preg" & dose2_T == "No D2" ~ "include",
+      dose1_T == "D1 post-partum/BF" & dose2_T == "D2 post-partum/BF" ~ "include",
+      dose1_T == "D1 post-partum/BF" & dose2_T == "D2 post-partum/Not BF" ~ "include",
+      dose1_T == "D1 post-partum/BF" & dose2_T == "No D2" ~ "include",
+      dose1_T == "D1 post-partum/Not BF" & dose2_T == "D2 post-partum/Not BF" ~ "include",
+      dose1_T == "D1 post-partum/Not BF" & dose2_T == "D2 post-partum/BF" ~ "include",
+      dose1_T == "D1 post-partum/Not BF" & dose2_T == "No D2" ~ "include",
+      dose1_T == "No vaccine NOT pregnant" | dose1_T == "No vaccine pregnant" ~ "include",
+      TRUE ~ "exclude"
+    )
+  )
+
+describeFactors(data_use$include)
+# exclude "953 (16.8%)"  
+# include "4,735 (83.2%)"
+
+# describeFactors(data_use$i1_dob1_BL)
+data_use$BABY_HAS_DOB_BL <- ifelse(is.na(data_use$i1_dob1_BL), "No", "Yes")
+
+tab_xtab(data_use$BABY_HAS_DOB_BL, data_use$include)
+
+tab_xtab(data_use$dose1_T[which(data_use$BABY_HAS_DOB_BL == "Yes")], data_use$dose2_T[which(data_use$BABY_HAS_DOB_BL == "Yes")])
+
+
+data_use <- data_use %>% 
+   mutate(
+    dose3_T = case_when(
+      dose1_T == "No vaccine NOT pregnant" ~ "No vaccine NOT pregnant",
+      dose1_T == "No vaccine pregnant" ~ "No vaccine pregnant",
+      bl8_dose2_BL == 0 ~ "No D2 or D3",
+      dt2_timing2_vb___2_BL == 1 ~ "D3 during preg",
+      dt2_timing2_vb___1_BL == 1 ~ "D3 before preg",
+      dt2_timing2_vb___3_BL == 1 ~ "D3 post-partum/BF",
+      dt2_timing2_vb___4_BL == 1 ~ "D3 post-partum/Not BF"
+    )
+  )
+
+describeFactors(data_use$dose3_T)
+
+tab_xtab(data_use$dose1_T, data_use$dose3_T)
+tab_xtab(data_use$dose1_T, data_use$dose2_T)
+
+#########
+#### DOSE SPECIFIC SURVEYS WERE ONLY ASKED ONCE SO I THINK WE CAN COMBINE THEM ACROSS TIME POINTS FOR EACH PERSON
+# IF DOSE 1 WAS BEFORE PREG AT BASELINE THEN EXCLUDE THEM
+# IF D1 DURING PREG AT BASELINE THEN INCLUDE THEM
+data_use <- data_use %>% 
+  mutate(include_BL = case_when(
+    dose1_T == "D1 before preg" ~ "exclude",
+    dose1_T == "D1 during preg" & dose2_T == "D2 during preg" & dose3_T == "D3 during preg" ~ "include D1&2&3 in preg",
+    dose1_T == "D1 during preg" & dose2_T == "D2 during preg" ~ "D1&2 in preg",
+    dose1_T == "D1 during preg" ~ "include D1 in preg",
+    grepl("post", dose1_T) & dose2_T %in% c("D2 before preg", "D2 during preg") & dose3_T %in% c("D3 before preg", "D3 during preg") ~ "exclude",
+    grepl("post", dose1_T) & dose2_T %in% c("D2 before preg", "D2 during preg") ~ "exclude",
+    grepl("post", dose1_T) ~ "include D1 pp",
+    dose1_T == "No vaccine NOT pregnant" ~ "exclude not preg",
+    dose1_T == "No vaccine pregnant" ~ "include no vax BL"
+  ))
+describeFactors(data_use$include_BL)
+# D1&2 in preg           "2,071 (36.4%)"
+# exclude                "784 (13.8%)"  
+# exclude not preg       "59 (1.0%)"    
+# include D1 in preg     "892 (15.7%)"  
+# include D1 pp          "1,645 (28.9%)"
+# include D1&2&3 in preg "20 (0.4%)"    
+# include no vax BL      "89 (1.6%)"    
+# Missing                "128 (2.3%)"   
+
+### then we need to look at self-reported timing for subsequent follow up and doses
+
+data_use <- data_use %>% 
+  mutate(
+    dose1_T_2mo = case_when(
+      do2_timing2___2_2mo == 1 ~ "D1 during preg",
+      do2_timing2___1_2mo == 1 ~ "D1 before preg",
+      do2_timing2___3_2mo == 1 ~ "D1 post-partum/BF",
+      do2_timing2___4_2mo == 1 ~ "D1 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose1_T_2mo)
+tab_xtab(data_use$include_BL, data_use$dose1_T_2mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose2_T_2mo = case_when(
+      dt2_timing2___2_2mo == 1 ~ "D2 during preg",
+      dt2_timing2___1_2mo == 1 ~ "D2 before preg",
+      dt2_timing2___3_2mo == 1 ~ "D2 post-partum/BF",
+      dt2_timing2___4_2mo == 1 ~ "D2 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose2_T_2mo)
+tab_xtab(data_use$include_BL, data_use$dose2_T_2mo)
+
+## nothing surprising here
+data_use <- data_use %>% 
+   mutate(
+    dose3_T_2mo = case_when(
+      dt2_timing2_vb___2_2mo == 1 ~ "D3 during preg",
+      dt2_timing2_vb___1_2mo == 1 ~ "D3 before preg",
+      dt2_timing2_vb___3_2mo == 1 ~ "D3 post-partum/BF",
+      dt2_timing2_vb___4_2mo == 1 ~ "D3 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose3_T_2mo)
+tab_xtab(data_use$include_BL, data_use$dose3_T_2mo) # 10 will need to be excluded as they indicated D3 before preg with D1 in preg (n=1), and D1pp (n = 8)
+
+# data_use <- data_use %>% 
+#   mutate(include_2mo = case_when(
+#     grepl("exclude", include_BL) ~ "exclude",
+#     include_BL == "include D1 in preg" & 
+#   ))
+# describeFactors(data_use$include_BL)
+
+
+###### Thinking about this in a different way. Can we determine when someone has entered data into the pregnancy outcomes survey?
+# View(data_use[, c("record_id", "pregnancy_outcomes_timestamp_BL", "pregnancy_outcomes_timestamp_2mo", "pregnancy_outcomes_timestamp_4mo", "pregnancy_outcomes_timestamp_6mo", "pregnancy_outcomes_timestamp_8mo", "pregnancy_outcomes_timestamp_10mo", "pregnancy_outcomes_timestamp_14mo")])
+
+data_use$num_preg_outcomes <- rowSums(!is.na(data_use[, c("pregnancy_outcomes_timestamp_BL", "pregnancy_outcomes_timestamp_2mo", "pregnancy_outcomes_timestamp_4mo", "pregnancy_outcomes_timestamp_6mo", "pregnancy_outcomes_timestamp_8mo", "pregnancy_outcomes_timestamp_10mo", "pregnancy_outcomes_timestamp_14mo")]))
+
+## only 1 or 0, this might help a lot
+
+# write a for loop to figure out which of the survey times contains the pregnancy outcome information
+
+data_use$which_time_preg_out <- c()
+
+for(i in 1:nrow(data_use)){
+  xx <- data_use[i, c("pregnancy_outcomes_timestamp_BL", "pregnancy_outcomes_timestamp_2mo", "pregnancy_outcomes_timestamp_4mo", "pregnancy_outcomes_timestamp_6mo", "pregnancy_outcomes_timestamp_8mo", "pregnancy_outcomes_timestamp_10mo", "pregnancy_outcomes_timestamp_14mo")]
+  # print(i)
+  # print(which(!is.na(xx)))
+  
+  if(all(is.na(xx))) {
+    data_use$which_time_preg_out[i] = "No preg outcome"
+  }
+  
+  else if(length(which(!is.na(xx))) > 1){
+    data_use$which_time_preg_out[i] = which(!is.na(xx))[1]
+  }
+  
+  else {
+    data_use$which_time_preg_out[i] = which(!is.na(xx))
+  }
+
+}
+
+# View(data_use[, c("record_id", "pregnancy_outcomes_timestamp_BL", "pregnancy_outcomes_timestamp_2mo", "pregnancy_outcomes_timestamp_4mo", "pregnancy_outcomes_timestamp_6mo", "pregnancy_outcomes_timestamp_8mo", "pregnancy_outcomes_timestamp_10mo", "pregnancy_outcomes_timestamp_14mo", "which_time_preg_out")])
+
+describeFactors(data_use$which_time_preg_out)
+# 1               "2,865 (50.4%)"
+# 2               "860 (15.1%)"  
+# 3               "706 (12.4%)"  
+# 4               "536 (9.4%)"   
+# 5               "199 (3.5%)"   
+# 6               "22 (0.4%)"    
+# 7               "2 (0.0%)"     
+# No preg outcome "498 (8.8%)" 
+
+### this variable lets us choose which of the survey times need to be considered for deciding on the vaccination status and timing in pregnancy
+
+tab_xtab(data_use$which_time_preg_out, data_use$include_BL)
+# tab_xtab(data_use$which_time_preg_out, data_use$include_2mo)
+
+#### then I think we can paste all the results for doses together?
+data_use <- data_use %>% 
+  mutate(
+    dose1_T_4mo = case_when(
+      do2_timing2___2_4mo == 1 ~ "D1 during preg",
+      do2_timing2___1_4mo == 1 ~ "D1 before preg",
+      do2_timing2___3_4mo == 1 ~ "D1 post-partum/BF",
+      do2_timing2___4_4mo == 1 ~ "D1 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose1_T_4mo)
+tab_xtab(data_use$include_BL, data_use$dose1_T_4mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose2_T_4mo = case_when(
+      dt2_timing2___2_4mo == 1 ~ "D2 during preg",
+      dt2_timing2___1_4mo == 1 ~ "D2 before preg",
+      dt2_timing2___3_4mo == 1 ~ "D2 post-partum/BF",
+      dt2_timing2___4_4mo == 1 ~ "D2 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose2_T_4mo)
+tab_xtab(data_use$include_BL, data_use$dose2_T_4mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose3_T_4mo = case_when(
+      dt2_timing2_vb___2_4mo == 1 ~ "D3 during preg",
+      dt2_timing2_vb___1_4mo == 1 ~ "D3 before preg",
+      dt2_timing2_vb___3_4mo == 1 ~ "D3 post-partum/BF",
+      dt2_timing2_vb___4_4mo == 1 ~ "D3 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose3_T_4mo)
+tab_xtab(data_use$include_BL, data_use$dose3_T_4mo)
+
+### 6 mo
+data_use <- data_use %>% 
+  mutate(
+    dose1_T_6mo = case_when(
+      do2_timing2___2_6mo == 1 ~ "D1 during preg",
+      do2_timing2___1_6mo == 1 ~ "D1 before preg",
+      do2_timing2___3_6mo == 1 ~ "D1 post-partum/BF",
+      do2_timing2___4_6mo == 1 ~ "D1 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose1_T_6mo)
+# tab_xtab(data_use$include_BL, data_use$dose1_T_6mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose2_T_6mo = case_when(
+      dt2_timing2___2_6mo == 1 ~ "D2 during preg",
+      dt2_timing2___1_6mo == 1 ~ "D2 before preg",
+      dt2_timing2___3_6mo == 1 ~ "D2 post-partum/BF",
+      dt2_timing2___4_6mo == 1 ~ "D2 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose2_T_6mo)
+# tab_xtab(data_use$include_BL, data_use$dose2_T_6mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose3_T_6mo = case_when(
+      dt2_timing2_vb___2_6mo == 1 ~ "D3 during preg",
+      dt2_timing2_vb___1_6mo == 1 ~ "D3 before preg",
+      dt2_timing2_vb___3_6mo == 1 ~ "D3 post-partum/BF",
+      dt2_timing2_vb___4_6mo == 1 ~ "D3 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose3_T_6mo)
+# tab_xtab(data_use$include_BL, data_use$dose3_T_6mo)
+
+
+### 8 mo
+data_use <- data_use %>% 
+  mutate(
+    dose1_T_8mo = case_when(
+      do2_timing2___2_8mo == 1 ~ "D1 during preg",
+      do2_timing2___1_8mo == 1 ~ "D1 before preg",
+      do2_timing2___3_8mo == 1 ~ "D1 post-partum/BF",
+      do2_timing2___4_8mo == 1 ~ "D1 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose1_T_8mo)
+# tab_xtab(data_use$include_BL, data_use$dose1_T_8mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose2_T_8mo = case_when(
+      dt2_timing2___2_8mo == 1 ~ "D2 during preg",
+      dt2_timing2___1_8mo == 1 ~ "D2 before preg",
+      dt2_timing2___3_8mo == 1 ~ "D2 post-partum/BF",
+      dt2_timing2___4_8mo == 1 ~ "D2 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose2_T_8mo)
+# tab_xtab(data_use$include_BL, data_use$dose2_T_8mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose3_T_8mo = case_when(
+      dt2_timing2_vb___2_8mo == 1 ~ "D3 during preg",
+      dt2_timing2_vb___1_8mo == 1 ~ "D3 before preg",
+      dt2_timing2_vb___3_8mo == 1 ~ "D3 post-partum/BF",
+      dt2_timing2_vb___4_8mo == 1 ~ "D3 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose3_T_8mo)
+# tab_xtab(data_use$include_BL, data_use$dose3_T_8mo)
+
+
+
+### 10 mo
+data_use <- data_use %>% 
+  mutate(
+    dose1_T_10mo = case_when(
+      do2_timing2___2_10mo == 1 ~ "D1 during preg",
+      do2_timing2___1_10mo == 1 ~ "D1 before preg",
+      do2_timing2___3_10mo == 1 ~ "D1 post-partum/BF",
+      do2_timing2___4_10mo == 1 ~ "D1 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose1_T_10mo)
+# tab_xtab(data_use$include_BL, data_use$dose1_T_10mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose2_T_10mo = case_when(
+      dt2_timing2___2_10mo == 1 ~ "D2 during preg",
+      dt2_timing2___1_10mo == 1 ~ "D2 before preg",
+      dt2_timing2___3_10mo == 1 ~ "D2 post-partum/BF",
+      dt2_timing2___4_10mo == 1 ~ "D2 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose2_T_10mo)
+# tab_xtab(data_use$include_BL, data_use$dose2_T_10mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose3_T_10mo = case_when(
+      dt2_timing2_vb___2_10mo == 1 ~ "D3 during preg",
+      dt2_timing2_vb___1_10mo == 1 ~ "D3 before preg",
+      dt2_timing2_vb___3_10mo == 1 ~ "D3 post-partum/BF",
+      dt2_timing2_vb___4_10mo == 1 ~ "D3 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose3_T_10mo)
+# tab_xtab(data_use$include_BL, data_use$dose3_T_10mo)
+
+
+### 14 mo
+data_use <- data_use %>% 
+  mutate(
+    dose1_T_14mo = case_when(
+      do2_timing2___2_14mo == 1 ~ "D1 during preg",
+      do2_timing2___1_14mo == 1 ~ "D1 before preg",
+      do2_timing2___3_14mo == 1 ~ "D1 post-partum/BF",
+      do2_timing2___4_14mo == 1 ~ "D1 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose1_T_14mo)
+# tab_xtab(data_use$include_BL, data_use$dose1_T_14mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose2_T_14mo = case_when(
+      dt2_timing2___2_14mo == 1 ~ "D2 during preg",
+      dt2_timing2___1_14mo == 1 ~ "D2 before preg",
+      dt2_timing2___3_14mo == 1 ~ "D2 post-partum/BF",
+      dt2_timing2___4_14mo == 1 ~ "D2 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose2_T_14mo)
+# tab_xtab(data_use$include_BL, data_use$dose2_T_14mo)
+
+data_use <- data_use %>% 
+   mutate(
+    dose3_T_14mo = case_when(
+      dt2_timing2_vb___2_14mo == 1 ~ "D3 during preg",
+      dt2_timing2_vb___1_14mo == 1 ~ "D3 before preg",
+      dt2_timing2_vb___3_14mo == 1 ~ "D3 post-partum/BF",
+      dt2_timing2_vb___4_14mo == 1 ~ "D3 post-partum/Not BF",
+      TRUE ~ NA_character_
+    )
+  )
+
+describeFactors(data_use$dose3_T_14mo)
+# tab_xtab(data_use$include_BL, data_use$dose3_T_14mo)
+
+###### exclusions
+# 1. exclude everyone who does not have a pregnancy outcomes survey filled in
+data_ex1 <- data_use[-which(data_use$which_time_preg_out == "No preg outcome"), ] # 5688 to 5190
+describeFactors(data_ex1$include_BL)
+# D1&2 in preg           "1,967 (37.9%)"
+# exclude                "514 (9.9%)"   
+# exclude not preg       "57 (1.1%)"    
+# include D1 in preg     "864 (16.6%)"  
+# include D1 pp          "1,625 (31.3%)"
+# include D1&2&3 in preg "16 (0.3%)"    
+# include no vax BL      "75 (1.4%)"    
+# Missing                "72 (1.4%)" 
+
+# 2. exclude the ones that should be excluded from using BL information (eg vaxx before preg or not pregnant)
+data_ex2 <- data_ex1[-which(data_ex1$include_BL %in% c("exclude", "exclude not preg") | is.na(data_ex1$include_BL)), ] # 4547
+
+data_ex2$all_dose1_info <- paste(data_ex2$dose1_T, data_ex2$dose1_T_2mo,
+                                 data_ex2$dose1_T_4mo, data_ex2$dose1_T_6mo,
+                                 data_ex2$dose1_T_8mo, data_ex2$dose1_T_10mo,
+                                 data_ex2$dose1_T_14mo, sep = "_")
+
+data_ex2$all_dose1_dates <- paste(data_ex2$do3_date_BL, data_ex2$do3_date_2mo,
+                                 data_ex2$do3_date_4mo, data_ex2$do3_date_6mo,
+                                 data_ex2$do3_date_8mo, data_ex2$do3_date_10mo,
+                                 data_ex2$do3_date_14mo, sep = "_")
+
+data_ex2$all_dose1_dates <- gsub("NA_", "", data_ex2$all_dose1_dates)
+data_ex2$all_dose1_dates <- gsub("__", "", data_ex2$all_dose1_dates)
+data_ex2$all_dose1_dates <- gsub("_", NA_character_, data_ex2$all_dose1_dates)
+
+data_ex2$all_baby_dob <- paste(data_ex2$i1_dob1_BL, data_ex2$i1_dob1_2mo,
+                                 data_ex2$i1_dob1_4mo, data_ex2$i1_dob1_6mo,
+                                 data_ex2$i1_dob1_8mo, data_ex2$i1_dob1_10mo,
+                                 data_ex2$i1_dob1_14mo, sep = "_")
+
+data_ex2$all_baby_dob <- gsub("NA_", "", data_ex2$all_baby_dob)
+data_ex2$all_baby_dob <- gsub("_NA", "", data_ex2$all_baby_dob)
+data_ex2$all_baby_dob <- gsub("NA", NA_character_, data_ex2$all_baby_dob)  
+  
+
+data_ex2$all_dose2_info <- paste(data_ex2$dose2_T, data_ex2$dose2_T_2mo,
+                                 data_ex2$dose2_T_4mo, data_ex2$dose2_T_6mo,
+                                 data_ex2$dose2_T_8mo, data_ex2$dose2_T_10mo,
+                                 data_ex2$dose2_T_14mo, sep = "_")
+
+data_ex2$all_dose2_dates <- paste(data_ex2$dt3_date_BL, data_ex2$dt3_date_2mo,
+                                 data_ex2$dt3_date_4mo, data_ex2$dt3_date_6mo,
+                                 data_ex2$dt3_date_8mo, data_ex2$dt3_date_10mo,
+                                 data_ex2$dt3_date_14mo, sep = "_")
+
+data_ex2$all_dose2_dates <- gsub("NA_", "", data_ex2$all_dose2_dates)
+data_ex2$all_dose2_dates <- gsub("__", "", data_ex2$all_dose2_dates)
+data_ex2$all_dose2_dates <- gsub("_", NA_character_, data_ex2$all_dose2_dates)
+
+data_ex2$all_dose3_info <- paste(data_ex2$dose3_T, data_ex2$dose3_T_2mo,
+                                 data_ex2$dose3_T_4mo, data_ex2$dose3_T_6mo,
+                                 data_ex2$dose3_T_8mo, data_ex2$dose3_T_10mo,
+                                 data_ex2$dose3_T_14mo, sep = "_")
+
+data_ex2$all_dose3_dates <- paste(data_ex2$dt3_date_vb_BL, data_ex2$dt3_date_vb_2mo,
+                                 data_ex2$dt3_date_vb_4mo, data_ex2$dt3_date_vb_6mo,
+                                 data_ex2$dt3_date_vb_8mo, data_ex2$dt3_date_vb_10mo,
+                                 data_ex2$dt3_date_vb_14mo, sep = "_")
+
+data_ex2$all_dose3_dates <- gsub("NA_", "", data_ex2$all_dose3_dates)
+data_ex2$all_dose3_dates <- gsub("_NA", "", data_ex2$all_dose3_dates)
+data_ex2$all_dose3_dates <- gsub("NA", NA_character_, data_ex2$all_dose3_dates)
+data_ex2$all_dose3_dates <- gsub("_.*", "", data_ex2$all_dose3_dates)
+
+data_ex2$all_dose1_dates <- as.Date(data_ex2$all_dose1_dates)
+data_ex2$all_dose2_dates <- as.Date(data_ex2$all_dose2_dates)
+data_ex2$all_dose3_dates <- as.Date(data_ex2$all_dose3_dates)
+data_ex2$all_baby_dob <- as.Date(data_ex2$all_baby_dob)
+
+### calculate GA where possible and cross-check with timing
+data_ex2$bl1a_delivery_date_BL <- as.Date(data_ex2$bl1a_delivery_date_BL)
+data_ex2$dose1_GA <- as.numeric((280 - (data_ex2$bl1a_delivery_date_BL - data_ex2$all_dose1_dates))/7)
+data_ex2$dose2_GA <- as.numeric((280 - (data_ex2$bl1a_delivery_date_BL - data_ex2$all_dose2_dates))/7)
+data_ex2$dose3_GA <- as.numeric((280 - (data_ex2$bl1a_delivery_date_BL - data_ex2$all_dose3_dates))/7)
+
+data_ex2$GA_del <- as.numeric((280 - (data_ex2$bl1a_delivery_date_BL - data_ex2$all_baby_dob))/7)
+
+
+#### now we need to sort out vaccine timing - will need to triple check the 3 doses in pregnancy people
+data_ex2 <- data_ex2 %>% 
+  mutate(
+    vaccine_timing = case_when(
+      grepl("post", all_dose1_info) & grepl("post", all_dose2_info) & grepl("post", all_dose3_info) ~ "D123 pp",
+      grepl("during", all_dose1_info) & grepl("post", all_dose2_info) & grepl("post", all_dose3_info) ~ "D1 preg, D23 pp",
+      grepl("during", all_dose1_info) & grepl("during", all_dose2_info) & grepl("post", all_dose3_info) ~ "D12 in preg, D3 pp",
+      grepl("during", all_dose1_info) & grepl("during", all_dose2_info) & grepl("during", all_dose3_info) ~ "D123 in preg",
+      grepl("during", all_dose1_info) & grepl("post", all_dose2_info) ~ "D1 in preg, D2 pp, no D3",
+      grepl("during", all_dose1_info) & grepl("during", all_dose2_info) ~ "D12 in preg, no D3",
+      include_BL == "include D1 in preg" ~ "D1 in preg, no D23",
+      include_BL == "include D1 pp" ~ "D1 pp, no D23",
+      TRUE ~ include_BL
+    )
+  )
+
+describeFactors(data_ex2$vaccine_timing)
+# D1 in preg, D2 pp, no D3 "140 (3.1%)"   
+# D1 in preg, no D23       "73 (1.6%)"    
+# D1 pp, no D23            "623 (13.7%)"  
+# D1 preg, D23 pp          "466 (10.2%)"  
+# D12 in preg, D3 pp       "1,604 (35.3%)"
+# D12 in preg, no D3       "474 (10.4%)"  
+# D123 in preg             "123 (2.7%)"   
+# D123 pp                  "1,006 (22.1%)"
+# include no vax BL        "38 (0.8%)"  
+
+# View(data_ex2[which(data_ex2$vaccine_timing == "D123 in preg"), c("record_id", "include_BL", "all_dose1_info", "all_dose2_info", "all_dose3_info", "dose1_GA", "dose2_GA", "dose3_GA", "bl1a_delivery_date_BL", "all_baby_dob", "all_dose1_dates", "all_dose2_dates", "all_dose3_dates")])
+
+## fix some of the timings based on calculated GA
+data_ex2 <- data_ex2 %>% 
+  mutate(
+    vaccine_timing_fix = case_when(
+      vaccine_timing == "D123 in preg" & dose2_GA > GA_del & dose3_GA > GA_del ~ "D1 preg, D23 pp",
+      vaccine_timing == "D123 in preg" & dose2_GA <= GA_del & dose3_GA > GA_del ~ "D12 in preg, D3 pp",
+      vaccine_timing == "D123 in preg" & dose2_GA <= GA_del & dose3_GA <= GA_del ~ "D123 in preg",
+      vaccine_timing == "D123 in preg" & dose2_GA > GA_del & is.na(all_dose3_dates) ~ "D1 in preg, D2 pp, no D3",
+      vaccine_timing == "D123 in preg" & dose2_GA <= GA_del & is.na(all_dose3_dates) ~ "D12 in preg, no D3",
+      TRUE ~ vaccine_timing
+    )
+  )
+
+describeFactors(data_ex2$vaccine_timing)
+describeFactors(data_ex2$vaccine_timing_fix)
+
+## remove the ones with Baby DOB before March 2020
+describeFactors(data_ex2$bl3_after_march_BL)
+data_ex2 <- data_ex2[-which(data_ex2$all_baby_dob < "2020-03-01"), ] # from 4547 to 4539
+
+
+# View(data_ex2[which(data_ex2$vaccine_timing_fix == "D123 in preg"), c("record_id", "include_BL", "all_dose1_info", "all_dose2_info", "all_dose3_info", "dose1_GA", "dose2_GA", "dose3_GA", "bl1a_delivery_date_BL", "all_baby_dob", "all_dose1_dates", "all_dose2_dates", "all_dose3_dates")])
+
+#### make this the final designation
+data_ex2 <- data_ex2 %>% 
+  mutate(
+    vacc_in_preg = case_when(
+      grepl("preg", vaccine_timing_fix) ~ "vaccine in pregnancy",
+      grepl("pp|vax", vaccine_timing_fix) ~ "no vaccine in pregnancy"
+    )
+  )
+
+describeFactors(data_ex2$vacc_in_preg)
+
+
+
+
+
+```
+
+```{r notes}
+
+### GAL CHUNK
+
+## double check all the numbers in the table, starting with vaccines during pregnancy:
+
+##one dose ONLY dose_1_date, dose_2_date, dose_3_date, had_dose_1, had_dose_2, had_dose_3
+# 
+#  sum(data_ex2$had_dose_1, na.rm = TRUE)
+#  sum(data_ex2$had_dose_2, na.rm = TRUE)
+#  sum(data_ex2$had_dose_3, na.rm = TRUE)
+# 
+# 
+# # *is.na(data_ex2$had_dose_2)*is.na(data_ex2$had_dose_3), na.rm = TRUE)
+# 
+# 
+# data_ex2 %>% summarise(one_dose_only = sum(had_dose_1*is.na(had_dose_2)*is.na(had_dose_3), na.rm = TRUE))
+
+
+
+
+# Can you confirm that our “unvaccinated” group consists only of those never vaccinated or vaccinated after pregnancy (none vaccinated before pregnancy)? If not, we’d like to change it to be as such. 
+# We have 30 people who received 3 doses of vaccine during pregnancy. This seems quite unlikely given the spacing between doses. Are these within the same pregnancy? Can we make sure that only first pregnancies are included in the analysis? 
+
+# How many SARS-CoV-2 infections did we have in the unvaccinated group? What was the severity? Any hospitalizations or ICU admissions?
+
+# The comparison to CANCOVID-Preg – are all of the CANCOVID-Preg comparators unvaccinated? This is what we had written and I think may have been based on the time frame of those data?
+
+# We’d like to add a supp graph showing infant DOBs or estimated dates of conception over time with overlaid waves of covid infection. If we could also stratify for vaccinated vs unvaccinated in that image, that would be great. This concept came up when discussing how there could be a time difference in enrolment between vaccinated and unvaccinated.
+
+# In Table 1: Can we add a categorical representation of age? “Other” was an explicitly chosen category, right? 
+
+# Figure 1: This was a tough one. They wanted to know absolute numbers of how many were in each bar (which is displayed at the bottom) but showing this on the y axis instead of expressing as a % is not really possible due to scale. We decided to move this figure into a supplement and instead provide a table like the one attached from Deshayne. This tells dose timing relative to pregnancy, the vaccine product, and the vaccine series type (homologous mRNA, heterogenous mRNA, other). I don’t think we need the month that dose one was received. It would be good to also include a section on trimester at vaccination. 
+
+# Figure 2: Can we add a formal stats comparison to be able to say that “many of the reactions were reported at higher frequencies following the second and third doses as compared to the first.”?
+
+# New reactogenicity supplement: Like Figure 2 but broken down by vaccine product. We need to use proper vaccine names so Moderna = mRNA-1273, Pfizer = BNT162b2, AstraZeneca = ChAdOx1-S, J&J = Ad26.COV2.S. 
+
+# Table 2: We had a lot of discussion about p values vs standardized differences vs no stats comparison here. I think we settled on no stats comparison but Deb didn’t seem 100% on it and I agree that BJOG probably won’t let that fly. Shall we try that though? I am asking Wei if we can use the CIHI data we already have to add a column showing “expected rates” - will let you know if she says yes
+
+```
+
+
+```{r table}
+data <- as.data.frame(data_ex2)
+
+
+## extra exclusions (by gal)
+delete_these_ones <- read.csv("delete_these.csv", header = TRUE)
+# delete_these_ones$x
+
+data <- data %>% filter(!(record_id %in% delete_these_ones$x))
+## age
+# data$bl14_dob_month_BL
+# data$bl14_dob_year_BL
+
+data$dob <- paste(data$bl14_dob_year_BL, data$bl14_dob_month_BL, "01", sep = "-")
+data$dob <- as.Date(data$dob, format = "%Y-%m-%d")
+data$bl_completed_date_BL <- as.Date(as.character(data$bl_completed_date_BL), format = "%Y-%m-%d")
+# 
+# describe(data$dob)
+
+data$bl14_dob_month_BL[data$bl14_dob_year_BL == "1992.06"& !is.na(data$bl14_dob_year_BL)] <- 06
+data$bl14_dob_year_BL[data$bl14_dob_year_BL == "1992.06"& !is.na(data$bl14_dob_year_BL)] <- 1992
+
+data$bl14_dob_month_BL[!is.na(data$bl14_dob_year_BL) & is.na(data$bl14_dob_month_BL)] <- 01
+data$dob[which(data$dob == "0026-03-01")] <- NA
+data$dob[data$bl14_dob_year_BL >= 2020 & !is.na(data$bl14_dob_year_BL)] <- NA
+data$dob <- as.Date(data$dob)
+
+data$m_age <- data$bl_completed_date_BL - data$dob
+data$m_age <- as.numeric(data$m_age)/365.25
+summary(data$m_age)
+data <- data %>% 
+  mutate(
+    age_cat = case_when(
+      m_age <25 ~ "20-24",
+      m_age <30 ~ "25-29",
+      m_age <35 ~ "30-34",
+      m_age <40 ~ "35-39",
+      m_age <45 ~ "40-44",
+      m_age >=45 ~ "45+"
+    )
+  )
+
+
+## ethnicity
+# data$bl19_ethnicity___1_BL
+data <- data %>% 
+  mutate(
+    eth = case_when(
+      bl19_ethnicity___2_BL == 1 ~ "African/Caribbean/Black",
+      bl19_ethnicity___3_BL == 1 ~ "Hispanic/Latino/Latina",
+      bl19_ethnicity___4_BL == 1 ~ "East Asian",
+      bl19_ethnicity___5_BL == 1 ~ "South Asian",
+      bl19_ethnicity___6_BL == 1 ~ "South East Asian",
+      bl19_ethnicity___7_BL == 1 ~ "West Central Asian/Middle Eastern",
+      bl19_ethnicity___8_BL == 1 ~ "Indigenous originating from North America",
+      bl19_ethnicity___9_BL == 1 ~ "Indigneous originating from outside North America",
+      bl19_ethnicity___10_BL == 1 ~ "Mixed",
+      bl19_ethnicity___998_BL == 1 ~ "Other",
+      bl19_ethnicity___997_BL == 1 ~ "Prefer not to answer",
+      bl19_ethnicity___1_BL == 1 ~ "White/Caucasian"
+    )
+  )
+
+describeFactors(data$eth)
+data <- data %>% 
+  mutate(
+    eth2 = case_when(
+      eth %in% c("Indigenous originating from North America", "Indigneous originating from outside North America", "Mixed", "Other") ~ "Other",
+      eth == "Prefer not to answer" ~ NA_character_,
+      TRUE ~ eth
+    )
+  )
+describeFactors(data$eth2)
+data$eth2 <- factor(data$eth2, levels = c("White/Caucasian", "East Asian", "South Asian", "South East Asian", "Hispanic/Latino/Latina", "African/Caribbean/Black", "West Central Asian/Middle Eastern", "Other"))
+
+## gender
+# describeFactors(data$bl20_gender_BL)
+# describeFactors(data$bl20_gender_other_BL)
+
+data <- data %>% 
+  mutate(
+    gender = case_when(
+      bl20_gender_BL == 1 ~ "Woman",
+      !is.na(bl20_gender_other_BL) ~ "Nonbinary/Genderqueer",
+      bl20_gender_BL == 3 ~ "Nonbinary/Genderqueer",
+      bl20_gender_BL == 998 ~ "Nonbinary/Genderqueer",
+      TRUE ~ NA_character_
+    )
+  )
+describeFactors(data$gender)
+data$gender <- factor(data$gender, levels = c("Woman", "Nonbinary/Genderqueer"))
+
+## Country of birth
+describeFactors(data$bl15_country_born_BL)
+data$bl15_country_born_BL <- factor(data$bl15_country_born_BL, levels = c(1, 2, 3, 4, 998), labels = c("Canada", "Mexico", "United Kingdom", "United States of America", "Other"))
+
+## province of residence
+describeFactors(data$bl16a_province_res_BL)
+data$bl16a_province_res_BL <- factor(data$bl16a_province_res_BL, levels = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13), labels = c("AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YK"))
+
+## education
+describeFactors(data$bl23_education_BL)
+data$bl23_education_BL <- factor(data$bl23_education_BL, levels = c(1, 2, 3, 4, 5, 6, 7, 8, 997, 999), labels = c("Less than high school graduation", "High school graduation", "Trade certificate/Vocational", "Apprenticeship", "Non-University certificate or diploma", "Community college/CEGEP", "Bachelor's degree", "Graduate degree", NA, NA))
+## combine
+data$bl23_education_BL <- factor(data$bl23_education_BL)
+levels(data$bl23_education_BL)[c(1, 2)] <- "High school or less"
+levels(data$bl23_education_BL)[c(2, 3, 4, 5)] <- "Trade/Vocational/Apprenticeship/Certificate/College/CEGEP"
+
+## height
+# describeFactors(data$bl25_height_inches_BL)
+#between 4.1 and 6.1 are feet. Multiply by 12 to get inches:
+data$bl25_height_inches2 <- sapply(data$bl25_height_inches_BL, function(x) ifelse((x >= 4.1 & x <= 6.1) %in% TRUE, 12*x, x))
+# describeFactors(data$bl25_height_inches2)
+#INCH TO CM: 1 in = 2.54 cm
+data$bl25_height_inches_to_cm <- sapply(data$bl25_height_inches2, function(x) ifelse((x < 125) %in% TRUE, x * 2.54, x))
+# describeFactors(data$bl25_height_inches_to_cm)
+
+# describeFactors(data$bl25_height_cm_BL)
+#1.57-1.7 are m instead of cm -> multiply by 100
+data$bl25_height_cm2 <- sapply(data$bl25_height_cm_BL, function(x) ifelse((x >= 1.57 & x <= 1.7) %in% TRUE, 100*x, x))
+#5.4 and 5.6 are feet -> multiply by 30.48
+data$bl25_height_cm3 <- sapply(data$bl25_height_cm2, function(x) ifelse((x >= 5.4 & x <= 5.6) %in% TRUE, 30.48*x, x))
+#53-65 are inches -> multiply by 2.54
+data$bl25_height_cm4 <- sapply(data$bl25_height_cm3, function(x) ifelse((x < 125) %in% TRUE, x * 2.54, x))
+# describeFactors(data$bl25_height_cm4)
+
+#combine cm with inches variable
+data$bl25_height_comb2 <- mapply(paste, data$bl25_height_cm4, data$bl25_height_inches_to_cm, sep="/")
+# describeFactors(data$bl25_height_comb2)
+data$bl25_height_comb2 <- gsub("/NA","",data$bl25_height_comb2)
+data$bl25_height_comb2 <- gsub("NA/","",data$bl25_height_comb2)
+# describeFactors(data$bl25_height_comb2)
+
+#keep only heights between 125 cm and 193 cm
+data$bl25_height_comb <- sapply(data$bl25_height_comb2, function(x) ifelse((x >= 125 & x <= 193) %in% TRUE, x, NA))
+# describeFactors(data$bl25_height_comb)
+data$bl25_height_comb <- as.numeric(data$bl25_height_comb)
+# summary(data$bl25_height_comb)
+
+
+## weight
+# describeFactors(data$bl26_weight_kg_BL)
+# describeFactors(data$bl26_weight_lbs_BL)
+
+#Set 1300 to NA
+#Set everything below 90 to NA because we don't know if these are typos (10,14), are kg or real
+data$bl26_weight_lbs_OLD <- data$bl26_weight_lbs_BL
+data$bl26_weight_lbs_BL[data$bl26_weight_lbs==1300 & !is.na(data$bl26_weight_lbs_BL)] <- NA #2551
+data$bl26_weight_lbs_BL[data$bl26_weight_lbs < 90 & !is.na(data$bl26_weight_lbs_BL)] <- NA
+
+
+#LBS to KG: Pound (lbs) / 2.2046 = Result in Kilograms (kg)
+data$bl26_weight_lbs_to_kg <- round(data$bl26_weight_lbs_BL/ 2.2046,3)
+# describeFactors(data$bl26_weight_lbs_to_kg)
+
+data$bl26_weight_comb <- mapply(paste, data$bl26_weight_kg_BL, data$bl26_weight_lbs_to_kg, sep="/")
+# describeFactors(data$bl26_weight_comb)
+data$bl26_weight_comb <- gsub("/NA","",data$bl26_weight_comb)
+data$bl26_weight_comb <- gsub("NA/","",data$bl26_weight_comb)
+# describeFactors(data$bl26_weight_comb)
+data$bl26_weight_comb <- as.numeric(data$bl26_weight_comb)
+# summary(data$bl26_weight_comb)
+
+#BMI = weight in kilograms divided by height in meters squared
+#BMI under 18.5 is underweight (under 16 is increased risk of death)
+#BMI between 18.5 and 25 is normal range
+#BMI between 25 and 30 is overweight
+#BMI over 30 is obese
+data$BMI <- 10000 * data$bl26_weight_comb/(data$bl25_height_comb^2)
+# tail(data$BMI)
+# summary(data$BMI)
+
+data <- data %>% 
+  mutate(BMI_cat = factor(case_when(
+    BMI < 25 ~ "<25",
+    BMI < 30 ~ "25-29",
+    BMI >= 30 ~ "≥30"), levels = c("<25", "25-29", "≥30")))
+
+
+# Gestational Age at time of Entry
+data$bl1_currently_preg_BL
+data$ga_at_entry <- data$bl1a_delivery_date_BL - data$bl_completed_date_BL
+data$ga_at_entry[which(data$ga_at_entry < 0)] <- NA
+
+
+
+data$gest_age_at_entry <- case_when(
+  data$bl1_currently_preg_BL == 0 ~ "Not Pregnant",
+  data$ga_at_entry < 13  ~ "1st Trimester",
+  data$ga_at_entry < 27  ~ "2nd Trimester",
+  data$ga_at_entry >= 27   ~ "3rd Trimester"
+)
+
+max(data$bl_completed_date_BL, na.rm = TRUE)
+
+## vaccine types
+data$all_dose1_type <- paste(data$do1_type_BL, data$do1_type_2mo,
+                                 data$do1_type_4mo, data$do1_type_6mo,
+                                 data$do1_type_8mo, data$do1_type_10mo,
+                                 data$do1_type_14mo, sep = "_")
+
+data$all_dose1_type <- gsub("NA_", "", data$all_dose1_type)
+data$all_dose1_type <- gsub("__", "", data$all_dose1_type)
+data$all_dose1_type <- gsub("_", NA_character_, data$all_dose1_type)
+data$all_dose1_type <- gsub("998", "Combination", data$all_dose1_type)
+data$all_dose1_type <- gsub("999", NA_character_, data$all_dose1_type)
+data$all_dose1_type <- factor(data$all_dose1_type)
+levels(data$all_dose1_type) <- c("BNT162b2", "mRNA-1273", "ChAdOx1-S", "Ad26.COV2.S", "Combo")
+describeFactors(data$all_dose1_type)
+
+data$all_dose2_type <- paste(data$dt1_type_BL, data$dt1_type_2mo,
+                                 data$dt1_type_4mo, data$dt1_type_6mo,
+                                 data$dt1_type_8mo, data$dt1_type_10mo,
+                                 data$dt1_type_14mo, sep = "_")
+
+data$all_dose2_type <- gsub("NA_", "", data$all_dose2_type)
+data$all_dose2_type <- gsub("__", "", data$all_dose2_type)
+data$all_dose2_type <- gsub("_", NA_character_, data$all_dose2_type)
+# data$all_dose2_type <- gsub("998", "Combination", data$all_dose2_type)
+data$all_dose2_type <- gsub("999", NA_character_, data$all_dose2_type)
+data$all_dose2_type <- factor(data$all_dose2_type)
+levels(data$all_dose2_type) <- c("BNT162b2", "mRNA-1273", "ChAdOx1-S")
+describeFactors(data$all_dose2_type)
+
+data$all_dose3_type <- paste(data$dt1_type_vb_BL, data$dt1_type_vb_2mo,
+                                 data$dt1_type_vb_4mo, data$dt1_type_vb_6mo,
+                                 data$dt1_type_vb_8mo, data$dt1_type_vb_10mo,
+                                 data$dt1_type_vb_14mo, sep = "_")
+
+data$all_dose3_type <- gsub("NA_", "", data$all_dose3_type)
+data$all_dose3_type <- gsub("_", "", data$all_dose3_type)
+data$all_dose3_type <- gsub("NA", "", data$all_dose3_type)
+data$all_dose3_type <- substr(data$all_dose3_type, start =1 , stop = 1)
+data$all_dose3_type <- gsub("9", NA_character_, data$all_dose3_type)
+data$all_dose3_type <- factor(data$all_dose3_type)
+levels(data$all_dose3_type) <- c(NA, "BNT162b2", "mRNA-1273", "ChAdOx1-S", "Ad26.COV2.S")
+describeFactors(data$all_dose3_type)
+
+# describeFactors(data$all_baby_dob) # look at the very late yet to happen date of birth
+# View(data[which(data$all_baby_dob > "2022-04-01"), c("record_id", "bl1a_delivery_date_BL", "all_baby_dob", "all_dose1_dates", "all_dose2_dates", "all_dose3_dates")])
+
+data$all_baby_dob[which(data$all_baby_dob > "2022-04-01")] <- gsub("2022", "2021", data$all_baby_dob[which(data$all_baby_dob > "2022-04-01")])
+
+
+
+getT1Stat <- function(varname, digits=0, useNA = "ifany"){
+  getDescriptionStatsBy(data[, varname], 
+                        data$vacc_in_preg, 
+                        add_total_col=TRUE,
+                        show_all_values=TRUE, 
+                        hrzl_prop=FALSE,
+                        statistics= FALSE,
+                        #list('continuous' = 'getPvalAnova','proportion' = 'getPvalChiSq','factor' = 'getPvalChiSq'), 
+                        html=TRUE, 
+                        useNA = useNA,
+                        digits=digits,
+                        header_count = TRUE)
+}
+
+getT1Stat.median <- function(varname, digits=0, useNA = "ifany"){
+  getDescriptionStatsBy(data[, varname], 
+                        data$vacc_in_preg, 
+                        add_total_col=TRUE,
+                        show_all_values=TRUE, 
+                        hrzl_prop=FALSE,
+                        statistics=FALSE, 
+                        html=TRUE, 
+                        useNA = useNA,
+                        digits=digits,
+                        header_count = TRUE,
+                        continuous_fn = describeMedian)
+}
+
+
+table_data <- list()
+table_data[["Age"]] <- getT1Stat("age_cat", 1)
+table_data[["BMI"]] <- getT1Stat("BMI_cat", 1)
+table_data[["Ethnicity"]] <- getT1Stat("eth2", 1)
+table_data[["Gender"]] <- getT1Stat("gender", 1)
+# table_data[["Country of birth"]] <- getT1Stat.median("bl15_country_born", 1)
+table_data[["Province of residence"]] <- getT1Stat("bl16a_province_res_BL", 1)
+table_data[["Education"]] <- getT1Stat("bl23_education_BL", 1)
+table_data[["Vaccine timing"]] <- getT1Stat("vaccine_timing_fix", 1)
+table_data[["Dose 1 vaccine types"]] <- getT1Stat("all_dose1_type", 1)
+table_data[["Dose 2 vaccine types"]] <- getT1Stat("all_dose2_type", 1)
+table_data[["Dose 3 vaccine types"]] <- getT1Stat("all_dose3_type", 1)
+table_data[["Gestational Age"]] <- getT1Stat("gest_age_at_entry", 1)
+
+
+
+# these last 3 are really confusing because people with only 1 dose in preg have timing in preg for 2nd and 3rd doses. This is because they would have had the other doses pre pregnancy
+
+# Now merge everything into a matrix
+# and create the rgroup & n.rgroup variabels
+rgroup <- c()
+n.rgroup <- c()
+output_data <- NULL
+for (varlabel in names(table_data)) {
+  output_data <- rbind(output_data, table_data[[varlabel]])
+  rgroup <- c(rgroup,
+              varlabel)
+  n.rgroup <- c(n.rgroup,
+                nrow(table_data[[varlabel]]))
+}
+
+# Add a column spanner for the columns
+cgroup <- c("", "Dose timing")
+n.cgroup <- c(1, 2)
+colnames(output_data) <- gsub("[ ]*Dose timing", "", colnames(output_data))
+
+htmlTable::htmlTable(output_data, align = "rrrr",
+          rgroup = rgroup, n.rgroup = n.rgroup,
+          css.rgroup.sep = "",
+          cgroup = cgroup,
+          n.cgroup = n.cgroup,
+          rowlabel = "",
+          caption = "Table 1. Demographic and clinical history # summary",
+          ctable = TRUE)  %>% htmltools::html_print()
+
+
+
+```
+
+```{r Gal checking shit out}
+# data_all3 <- data %>% filter(vaccine_timing_fix == "D123 in preg")
+# data_all3$date_diff <- data_all3$dose_3_date - data_all3$dose_1_date
+# data_all3$date_diff_weeks <- data_all3$date_diff/7
+# 
+# 
+# data_all3$date_diff2 <- data_all3$all_dose3_dates - data_all3$all_dose1_dates
+# data_all3$date_diff_weeks2 <- data_all3$date_diff2/7
+# 
+# data_all3$date_diff_weeks  == data_all3$date_diff_weeks2 
+# 
+# data_all3$date_diff_weeks < 20
+# 
+# 
+# data_all3 <- data_all3 %>%
+#   mutate(
+#     date_diff_weeks_cat = case_when(
+#       date_diff_weeks < 0 ~ "<0",
+#       date_diff_weeks < 20  ~ "<20",
+#       date_diff_weeks < 40 ~ "20 to 40",
+#       date_diff_weeks > 40 ~ ">40",
+#       is.na(date_diff_weeks)  ~ "missing"
+#     )
+#   )
+# 
+# data_all3 %>% group_by(date_diff_weeks_cat) %>% summarise( n = n())
+# 
+# delete_these <- data_all3$record_id[which(data_all3$date_diff_weeks_cat != "20 to 40")]
+# 
+# write.csv(delete_these,"delete_these.csv")
+
+```
+
+
+```{r plot people over time by vaxx}
+data$first_date <- as.Date(data$demographic_health_pregnancy_survey_timestamp_BL)
+summary(data$first_date)
+
+# recruitment date
+ggplot(data, aes(x = first_date, group = vacc_in_preg, fill = vacc_in_preg)) +
+  geom_histogram(binwidth = 5) +
+  facet_wrap(~vacc_in_preg)
+
+# baby DOB 
+ggplot(data, aes(x = all_baby_dob, group = vacc_in_preg, fill = vacc_in_preg)) +
+  geom_histogram(binwidth = 5) +
+  facet_wrap(~vacc_in_preg)
+
+## first vaccine dates
+data$do3_date_BL <- as.Date(data$do3_date_BL)
+ggplot(data, aes(x = do3_date_BL, group = vacc_in_preg, fill = vacc_in_preg)) +
+  geom_histogram(binwidth = 5) +
+  facet_wrap(~vacc_in_preg) +
+  scale_x_date(limits = as.Date(c("2020-12-01", "2022-03-01")))
+
+data$do3_date_2mo <- as.Date(data$do3_date_2mo)
+ggplot(data, aes(x = do3_date_2mo, group = vacc_in_preg, fill = vacc_in_preg)) +
+  geom_histogram(binwidth = 5) +
+  facet_wrap(~vacc_in_preg) +
+  scale_x_date(limits = as.Date(c("2020-12-01", "2022-03-01")))
+
+```
+
+```{r how many had covid}
+## how many of the completely unvaccinated had covid?
+
+describeFactors(data$vaccine_timing_fix) # 38 people did not ever record a vaccine
+
+data_unvax <- data[which(data$vaccine_timing_fix == "include no vax BL"), ]
+
+describeFactors(data_unvax$redcap_event_name_2mo)
+# followup_2_months_arm_1 "34 (89.5%)"
+# Missing                 "4 (10.5%)"
+
+describeFactors(data_unvax$redcap_event_name_4mo)
+# followup_4_months_arm_1 "34 (89.5%)"
+# Missing                 "4 (10.5%)" 
+
+describeFactors(data_unvax$redcap_event_name_6mo)
+# followup_6_months_arm_1 "31 (81.6%)"
+# Missing                 "7 (18.4%)"
+
+describeFactors(data_unvax$redcap_event_name_8mo)
+# followup_8_months_arm_1 "29 (76.3%)"
+# Missing                 "9 (23.7%)"
+
+describeFactors(data_unvax$redcap_event_name_10mo)
+# followup_10_months_arm_1 "15 (39.5%)"
+# Missing                  "23 (60.5%)"
+
+describeFactors(data_unvax$redcap_event_name_14mo)
+# Missing "38 (100.0%)"
+
+
+data_unvax$all_covid_inf_fu <- paste(data_unvax$fu4_covid_pos_2mo,
+                                     data_unvax$fu4_covid_pos_4mo,
+                                     data_unvax$fu4_covid_pos_6mo,
+                                     data_unvax$fu4_covid_pos_8mo,
+                                     data_unvax$fu4_covid_pos_10mo,
+                                     data_unvax$fu4_covid_pos_14mo, sep = "_")
+
+data_unvax$all_covid_inf_fu <- gsub("NA_", "", data_unvax$all_covid_inf_fu)
+data_unvax$all_covid_inf_fu <- gsub("_NA", "", data_unvax$all_covid_inf_fu)
+data_unvax$all_covid_inf_fu <- ifelse(grepl("1", data_unvax$all_covid_inf_fu), "yes", "no")
+
+describeFactors(data_unvax$all_covid_inf_fu)
+# no  "20 (52.6%)"
+# yes "18 (47.4%)"
+
+## severity
+data_unvax$all_covid_severity_fu <- paste(data_unvax$fu5_covid_severity_2mo,
+                                     data_unvax$fu5_covid_severity_4mo,
+                                     data_unvax$fu5_covid_severity_6mo,
+                                     data_unvax$fu5_covid_severity_8mo,
+                                     data_unvax$fu5_covid_severity_10mo,
+                                     data_unvax$fu5_covid_severity_14mo, sep = "_")
+
+data_unvax$all_covid_severity_fu <- gsub("NA_", "", data_unvax$all_covid_severity_fu)
+data_unvax$all_covid_severity_fu <- gsub("_NA", "", data_unvax$all_covid_severity_fu)
+describeFactors(data_unvax$all_covid_severity_fu)
+# 2     "6 (15.8%)" 
+# 2_2   "5 (13.2%)" 
+# 2_2_3 "1 (2.6%)"  
+# 2_3   "2 (5.3%)"  
+# 3     "4 (10.5%)" 
+# NA    "20 (52.6%)"
+## All mild or moderate - no hosp
+
+
+### of those vaccinated in pregnancy
+data_vaxPreg <- data[which(data$vacc_in_preg == "vaccine in pregnancy"), ]
+
+data_vaxPreg$all_covid_inf_fu <- paste(data_vaxPreg$fu4_covid_pos_2mo,
+                                     data_vaxPreg$fu4_covid_pos_4mo,
+                                     data_vaxPreg$fu4_covid_pos_6mo,
+                                     data_vaxPreg$fu4_covid_pos_8mo,
+                                     data_vaxPreg$fu4_covid_pos_10mo,
+                                     data_vaxPreg$fu4_covid_pos_14mo, sep = "_")
+
+data_vaxPreg$all_covid_inf_fu <- gsub("NA_", "", data_vaxPreg$all_covid_inf_fu)
+data_vaxPreg$all_covid_inf_fu <- gsub("_NA", "", data_vaxPreg$all_covid_inf_fu)
+data_vaxPreg$all_covid_inf_fu <- gsub("NA", "", data_vaxPreg$all_covid_inf_fu)
+data_vaxPreg$all_covid_inf_fu <- ifelse(grepl("1", data_vaxPreg$all_covid_inf_fu), "yes", "no")
+
+describeFactors(data_vaxPreg$all_covid_inf_fu)
+# no  "2,093 (72.7%)"
+# yes "786 (27.3%)"
+
+## severity
+data_vaxPreg$all_covid_severity_fu <- paste(data_vaxPreg$fu5_covid_severity_2mo,
+                                     data_vaxPreg$fu5_covid_severity_4mo,
+                                     data_vaxPreg$fu5_covid_severity_6mo,
+                                     data_vaxPreg$fu5_covid_severity_8mo,
+                                     data_vaxPreg$fu5_covid_severity_10mo,
+                                     data_vaxPreg$fu5_covid_severity_14mo, sep = "_")
+
+data_vaxPreg$all_covid_severity_fu <- gsub("NA_", "", data_vaxPreg$all_covid_severity_fu)
+data_vaxPreg$all_covid_severity_fu <- gsub("_NA", "", data_vaxPreg$all_covid_severity_fu)
+describeFactors(data_vaxPreg$all_covid_severity_fu)
+# 1     "21 (0.7%)"    
+# 1_1   "5 (0.2%)"     
+# 1_1_1 "1 (0.0%)"     
+# 1_2   "2 (0.1%)"     
+# 2     "483 (16.8%)"  
+# 2_1   "3 (0.1%)"     
+# 2_2   "108 (3.8%)"   
+# 2_2_2 "10 (0.3%)"    
+# 2_3   "11 (0.4%)"    
+# 3     "115 (4.0%)"   
+# 3_2   "3 (0.1%)"     
+# 3_2_3 "1 (0.0%)"     
+# 3_3   "19 (0.7%)"    
+# 3_3_3 "4 (0.1%)"     
+# NA    "2,093 (72.7%)"
+
+## all asymptomatic, mild, or moderate. None severe
+
+
+```
+
+```{r table of vaccines by type and trimester}
+### column for those who got at least 1 vaccine in preg
+summary(data_vaxPreg$dose1_GA)
+    # Min.  1st Qu.   Median     Mean  3rd Qu.     Max.     NA's 
+  # -39.14    11.07    16.71    58.05    23.00 73067.57     1104 
+
+## how many are negative
+length(which(data_vaxPreg$dose1_GA < 0)) # 13
+
+summary(data_vaxPreg$dose2_GA)
+    # Min.  1st Qu.   Median     Mean  3rd Qu.     Max.     NA's 
+  # -19.29    19.00    24.86    67.39    31.43 73073.71     1140
+
+## how many are negative
+length(which(data_vaxPreg$dose2_GA < 0)) # 7
+
+summary(data_vaxPreg$dose3_GA)
+    # Min.  1st Qu.   Median     Mean  3rd Qu.     Max.     NA's 
+   # -3.86    46.14    52.43   106.99    58.57 73163.14     1532
+
+## how many are negative
+length(which(data_vaxPreg$dose3_GA < 0)) # 1
+
+## remove the negatives and huge ones
+data_vaxPreg$dose1_GA <- ifelse(data_vaxPreg$dose1_GA < 0, NA, data_vaxPreg$dose1_GA)
+data_vaxPreg$dose2_GA <- ifelse(data_vaxPreg$dose2_GA < 0, NA, data_vaxPreg$dose2_GA)
+data_vaxPreg$dose3_GA <- ifelse(data_vaxPreg$dose3_GA < 0, NA, data_vaxPreg$dose3_GA)
+
+data_vaxPreg$dose1_GA <- ifelse(data_vaxPreg$dose1_GA > 100, NA, data_vaxPreg$dose1_GA)
+data_vaxPreg$dose2_GA <- ifelse(data_vaxPreg$dose2_GA > 100, NA, data_vaxPreg$dose2_GA)
+data_vaxPreg$dose3_GA <- ifelse(data_vaxPreg$dose3_GA > 100, NA, data_vaxPreg$dose3_GA)
+
+## remove the ones that don't make sense with self reported stuff
+data_vaxPreg$dose2_GA <- ifelse(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp","D12 in preg, no D3","D123 in preg"), data_vaxPreg$dose2_GA, NA)
+data_vaxPreg$dose3_GA <- ifelse(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"), data_vaxPreg$dose3_GA, NA)
+
+
+
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(
+    dose1_tri = case_when(
+      dose1_GA > 0 & dose1_GA < 13 ~ "1st",
+      dose1_GA < 27 ~ "2nd",
+      dose1_GA >= 28 & dose1_GA < GA_del ~ "3rd"
+    ),
+    dose2_tri = case_when(
+      dose2_GA > 0 & dose2_GA < 13 ~ "1st",
+      dose2_GA < 27 ~ "2nd",
+      dose2_GA >= 28 & dose2_GA < GA_del ~ "3rd"
+    ),
+    dose3_tri = case_when(
+      dose3_GA > 0 & dose3_GA < 13 ~ "1st",
+      dose3_GA < 27 ~ "2nd",
+      dose3_GA >= 28 & dose3_GA < GA_del ~ "3rd"
+    )
+  )
+
+
+describeFactors(data_vaxPreg$vaccine_timing_fix)
+describeFactors(data_vaxPreg$dose1_tri, useNA = "no")
+describeFactors(data_vaxPreg$dose2_tri, useNA = "no")
+describeFactors(data_vaxPreg$dose3_tri, useNA = "no")
+
+dim(data_vaxPreg[which(data_vaxPreg$vaccine_timing_fix == "D123 in preg"),c("dose3_tri","dose1_GA","dose2_GA","dose3_GA","new_preg")])
+
+data_vaxPreg[which(data_vaxPreg$dose3_tri == "1st"),c("vaccine_timing_fix","dose_1_date","dose_2_date", "dose_3_date", "all_baby_dob","new_preg","bl1a_delivery_date_BL")]
+
+describeFactors(data_vaxPreg$all_dose1_type)
+tab_xtab(data_vaxPreg$all_dose1_type[which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3"))], data_vaxPreg$all_dose2_type[which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3"))])
+
+ftable(data_vaxPreg$all_dose1_type[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))], data_vaxPreg$all_dose2_type[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))], data_vaxPreg$all_dose3_type[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))])
+
+```
+
+
+```{r vaccine reactions}
+
+## redness
+# describeFactors(data_vaxPreg$do4_redness)
+# describeFactors(data_vaxPreg$do4_redness_BL)
+# describeFactors(data_vaxPreg$do4_redness_2mo)
+# describeFactors(data_vaxPreg$dt4_redness)
+# describeFactors(data_vaxPreg$dt4_redness_BL)
+# describeFactors(data_vaxPreg$dt4_redness_2mo)
+# describeFactors(data_vaxPreg$dt4_redness_vb)
+# describeFactors(data_vaxPreg$dt4_redness_vb_BL)
+# describeFactors(data_vaxPreg$dt4_redness_vb_2mo)
+
+
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(
+    dose1_red = case_when(
+      do4_redness_BL == 1 | do4_redness_2mo == 1 | do4_redness_4mo | do4_redness_6mo | do4_redness_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose2_red = case_when(
+      dt4_redness_BL == 1 | dt4_redness_2mo == 1 | dt4_redness_4mo | dt4_redness_6mo | dt4_redness_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose3_red = case_when(
+      dt4_redness_vb_BL == 1 | dt4_redness_vb_2mo == 1 | dt4_redness_vb_4mo | dt4_redness_vb_6mo | dt4_redness_vb_8mo | dt4_redness_vb_10mo | dt4_redness_vb_14mo == "1" ~ 1,
+      TRUE ~ 0)
+  )
+
+describeFactors(data_vaxPreg$dose1_red)
+describeFactors(data_vaxPreg$dose2_red)
+describeFactors(data_vaxPreg$dose3_red)
+
+## tiredness
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(
+    dose1_tired = case_when(
+      do5_sideffects___1_BL == 1 | do5_sideffects___1_2mo == 1 | do5_sideffects___1_4mo | do5_sideffects___1_6mo | do5_sideffects___1_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose2_tired = case_when(
+      dt5_sideffects___1_BL == 1 | dt5_sideffects___1_2mo == 1 | dt5_sideffects___1_4mo | dt5_sideffects___1_6mo | dt5_sideffects___1_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose3_tired = case_when(
+      dt5_sideffects_vb___1_BL == 1 | dt5_sideffects_vb___1_2mo == 1 | dt5_sideffects_vb___1_4mo | dt5_sideffects_vb___1_6mo | dt5_sideffects_vb___1_8mo | dt5_sideffects_vb___1_10mo | dt5_sideffects_vb___1_14mo == "1" ~ 1,
+      TRUE ~ 0)
+  )
+
+
+describeFactors(data_vaxPreg$dose1_tired)
+describeFactors(data_vaxPreg$dose2_tired)
+describeFactors(data_vaxPreg$dose3_tired)
+
+## headache
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(
+    dose1_head = case_when(
+      do5_sideffects___2_BL == 1 | do5_sideffects___2_2mo == 1 | do5_sideffects___2_4mo | do5_sideffects___2_6mo | do5_sideffects___2_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose2_head = case_when(
+      dt5_sideffects___2_BL == 1 | dt5_sideffects___2_2mo == 1 | dt5_sideffects___2_4mo | dt5_sideffects___2_6mo | dt5_sideffects___2_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose3_head = case_when(
+      dt5_sideffects_vb___2_BL == 1 | dt5_sideffects_vb___2_2mo == 1 | dt5_sideffects_vb___2_4mo | dt5_sideffects_vb___2_6mo | dt5_sideffects_vb___2_8mo | dt5_sideffects_vb___2_10mo | dt5_sideffects_vb___2_14mo == "1" ~ 1,
+      TRUE ~ 0)
+  )
+
+
+describeFactors(data_vaxPreg$dose1_head)
+describeFactors(data_vaxPreg$dose2_head)
+describeFactors(data_vaxPreg$dose3_head)
+
+## muscle pain
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(
+    dose1_musc = case_when(
+      do5_sideffects___3_BL == 1 | do5_sideffects___3_2mo == 1 | do5_sideffects___3_4mo | do5_sideffects___3_6mo | do5_sideffects___3_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose2_musc = case_when(
+      dt5_sideffects___3_BL == 1 | dt5_sideffects___3_2mo == 1 | dt5_sideffects___3_4mo | dt5_sideffects___3_6mo | dt5_sideffects___3_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose3_musc = case_when(
+      dt5_sideffects_vb___3_BL == 1 | dt5_sideffects_vb___3_2mo == 1 | dt5_sideffects_vb___3_4mo | dt5_sideffects_vb___3_6mo | dt5_sideffects_vb___3_8mo | dt5_sideffects_vb___3_10mo | dt5_sideffects_vb___3_14mo == "1" ~ 1,
+      TRUE ~ 0)
+  )
+
+describeFactors(data_vaxPreg$dose1_musc)
+describeFactors(data_vaxPreg$dose2_musc)
+describeFactors(data_vaxPreg$dose3_musc)
+
+## chills
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(
+    dose1_chill = case_when(
+      do5_sideffects___4_BL == 1 | do5_sideffects___4_2mo == 1 | do5_sideffects___4_4mo | do5_sideffects___4_6mo | do5_sideffects___4_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose2_chill = case_when(
+      dt5_sideffects___4_BL == 1 | dt5_sideffects___4_2mo == 1 | dt5_sideffects___4_4mo | dt5_sideffects___4_6mo | dt5_sideffects___4_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose3_chill = case_when(
+      dt5_sideffects_vb___4_BL == 1 | dt5_sideffects_vb___4_2mo == 1 | dt5_sideffects_vb___4_4mo | dt5_sideffects_vb___4_6mo | dt5_sideffects_vb___4_8mo | dt5_sideffects_vb___4_10mo | dt5_sideffects_vb___4_14mo == "1" ~ 1,
+      TRUE ~ 0)
+  )
+
+
+
+## fever
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(
+    dose1_fever = case_when(
+      do5_sideffects___5_BL == 1 | do5_sideffects___5_2mo == 1 | do5_sideffects___5_4mo | do5_sideffects___5_6mo | do5_sideffects___5_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose2_fever = case_when(
+      dt5_sideffects___5_BL == 1 | dt5_sideffects___5_2mo == 1 | dt5_sideffects___5_4mo | dt5_sideffects___5_6mo | dt5_sideffects___5_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose3_fever = case_when(
+      dt5_sideffects_vb___5_BL == 1 | dt5_sideffects_vb___5_2mo == 1 | dt5_sideffects_vb___5_4mo | dt5_sideffects_vb___5_6mo | dt5_sideffects_vb___5_8mo | dt5_sideffects_vb___5_10mo | dt5_sideffects_vb___5_14mo == "1" ~ 1,
+      TRUE ~ 0)
+  )
+
+## nausea
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(
+    dose1_naus = case_when(
+      do5_sideffects___6_BL == 1 | do5_sideffects___6_2mo == 1 | do5_sideffects___6_4mo | do5_sideffects___6_6mo | do5_sideffects___6_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose2_naus = case_when(
+      dt5_sideffects___6_BL == 1 | dt5_sideffects___6_2mo == 1 | dt5_sideffects___6_4mo | dt5_sideffects___6_6mo | dt5_sideffects___6_8mo ~ 1,
+      TRUE ~ 0
+    ),
+    dose3_naus = case_when(
+      dt5_sideffects_vb___6_BL == 1 | dt5_sideffects_vb___6_2mo == 1 | dt5_sideffects_vb___6_4mo | dt5_sideffects_vb___6_6mo | dt5_sideffects_vb___6_8mo | dt5_sideffects_vb___6_10mo | dt5_sideffects_vb___6_14mo == "1" ~ 1,
+      TRUE ~ 0)
+  )
+
+
+
+
+```
+
+
+```{r plot vaccine reactions, fig.width = 8}
+## need to ensure correct denominators
+react.mat <- matrix(nrow = 21, ncol = 3)
+colnames(react.mat) <- c("Effect", "N", "Dose")
+react.mat[, 1] <- rep(c("Redness, pain, or swelling at the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"), 3)
+
+react.mat[, 3] <- c(rep("Dose 1", 7), rep("Dose 2", 7), rep("Dose 3", 7))
+
+react.mat[1, 2] <- sum(data_vaxPreg$dose1_red[which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[2, 2] <- sum(data_vaxPreg$dose1_tired[which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[3, 2] <- sum(data_vaxPreg$dose1_head[which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[4, 2] <- sum(data_vaxPreg$dose1_musc[which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[5, 2] <- sum(data_vaxPreg$dose1_chill[which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[6, 2] <- sum(data_vaxPreg$dose1_fever[which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[7, 2] <- sum(data_vaxPreg$dose1_naus[which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp", "D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+
+react.mat[8, 2] <- sum(data_vaxPreg$dose2_red[which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[9, 2] <- sum(data_vaxPreg$dose2_tired[which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[10, 2] <- sum(data_vaxPreg$dose2_head[which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[11, 2] <- sum(data_vaxPreg$dose2_musc[which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[12, 2] <- sum(data_vaxPreg$dose2_chill[which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[13, 2] <- sum(data_vaxPreg$dose2_fever[which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[14, 2] <- sum(data_vaxPreg$dose2_naus[which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D12 in preg, D3 pp", "D12 in preg, no D3", "D123 in preg")))
+
+react.mat[15, 2] <- sum(data_vaxPreg$dose3_red[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg")))
+
+react.mat[16, 2] <- sum(data_vaxPreg$dose3_tired[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg")))
+
+react.mat[17, 2] <- sum(data_vaxPreg$dose3_head[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg")))
+
+react.mat[18, 2] <- sum(data_vaxPreg$dose3_musc[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg")))
+
+react.mat[19, 2] <- sum(data_vaxPreg$dose3_chill[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg")))
+
+react.mat[20, 2] <- sum(data_vaxPreg$dose3_fever[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg")))
+
+react.mat[21, 2] <- sum(data_vaxPreg$dose3_naus[which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg"))])/length(which(data_vaxPreg$vaccine_timing_fix %in% c("D123 in preg")))
+
+
+react.mat <- as.data.frame(react.mat)
+react.mat$Effect <- factor(react.mat$Effect, levels = c("Redness, pain, or swelling at the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"), labels = c("Redness,\npain, or swelling\nat the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"))
+
+react.mat$N <- as.numeric(react.mat$N)
+react.mat$N <- round(react.mat$N*100, 1)
+
+# quartz(width = 10, height = 4)
+ggplot(react.mat, aes(x = Effect, y = N, fill = Dose, group = Dose)) +
+  geom_col(position = position_dodge(), colour = "black") +
+  theme_pubr() +
+  scale_fill_manual(values = ghibli_palette("KikiMedium")[c(4, 6, 2)]) +
+  theme(panel.grid.major.y = element_line(linetype = 2, colour = "grey"),
+        panel.grid.minor.y = element_line(linetype = 3, colour = "grey"),
+        text = element_text(size = 13)) +
+  xlab("") +
+  ylab("% of Participants\nreceiving dose in pregnancy") +
+  guides(fill = guide_legend(title = "")) + ylim(0,100)
+# ggsave(file="plot4.png", width=10, height=4, dpi=300)
+
+
+```
+
+```{r plot dose 1 reactogenicity by trimester, fig.width=8}
+
+react.mat <- matrix(nrow = 21, ncol = 3)
+colnames(react.mat) <- c("Effect", "N", "Trimester")
+react.mat[, 1] <- rep(c("Redness, pain, or swelling at the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"), 3)
+
+react.mat[, 3] <- c(rep("Trimester 1", 7), rep("Trimester 2", 7), rep("Trimester 3", 7))
+
+react.mat[1, 2] <- sum(data_vaxPreg$dose1_red[which(data_vaxPreg$dose1_tri %in% c("1st"))])/length(which(data_vaxPreg$dose1_tri %in% c("1st")))
+
+react.mat[2, 2] <- sum(data_vaxPreg$dose1_tired[which(data_vaxPreg$dose1_tri %in% c("1st"))])/length(which(data_vaxPreg$dose1_tri %in% c("1st")))
+
+react.mat[3, 2] <- sum(data_vaxPreg$dose1_head[which(data_vaxPreg$dose1_tri %in% c("1st"))])/length(which(data_vaxPreg$dose1_tri %in% c("1st")))
+
+react.mat[4, 2] <- sum(data_vaxPreg$dose1_musc[which(data_vaxPreg$dose1_tri %in% c("1st"))])/length(which(data_vaxPreg$dose1_tri %in% c("1st")))
+
+react.mat[5, 2] <- sum(data_vaxPreg$dose1_chill[which(data_vaxPreg$dose1_tri %in% c("1st"))])/length(which(data_vaxPreg$dose1_tri %in% c("1st")))
+
+react.mat[6, 2] <- sum(data_vaxPreg$dose1_fever[which(data_vaxPreg$dose1_tri %in% c("1st"))])/length(which(data_vaxPreg$dose1_tri %in% c("1st")))
+
+react.mat[7, 2] <- sum(data_vaxPreg$dose1_naus[which(data_vaxPreg$dose1_tri %in% c("1st"))])/length(which(data_vaxPreg$dose1_tri %in% c("1st")))
+
+
+react.mat[8, 2] <- sum(data_vaxPreg$dose1_red[which(data_vaxPreg$dose1_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose1_tri %in% c("2nd")))
+
+react.mat[9, 2] <- sum(data_vaxPreg$dose1_tired[which(data_vaxPreg$dose1_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose1_tri %in% c("2nd")))
+
+react.mat[10, 2] <- sum(data_vaxPreg$dose1_head[which(data_vaxPreg$dose1_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose1_tri %in% c("2nd")))
+
+react.mat[11, 2] <- sum(data_vaxPreg$dose1_musc[which(data_vaxPreg$dose1_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose1_tri %in% c("2nd")))
+
+react.mat[12, 2] <- sum(data_vaxPreg$dose1_chill[which(data_vaxPreg$dose1_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose1_tri %in% c("2nd")))
+
+react.mat[13, 2] <- sum(data_vaxPreg$dose1_fever[which(data_vaxPreg$dose1_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose1_tri %in% c("2nd")))
+
+react.mat[14, 2] <- sum(data_vaxPreg$dose1_naus[which(data_vaxPreg$dose1_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose1_tri %in% c("2nd")))
+
+react.mat[15, 2] <- sum(data_vaxPreg$dose1_red[which(data_vaxPreg$dose1_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose1_tri %in% c("3rd")))
+
+react.mat[16, 2] <- sum(data_vaxPreg$dose1_tired[which(data_vaxPreg$dose1_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose1_tri %in% c("3rd")))
+
+react.mat[17, 2] <- sum(data_vaxPreg$dose1_head[which(data_vaxPreg$dose1_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose1_tri %in% c("3rd")))
+
+react.mat[18, 2] <- sum(data_vaxPreg$dose1_musc[which(data_vaxPreg$dose1_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose1_tri %in% c("3rd"))) ##add dose2_tri = 3rd and dose3_tri = 3rd later or make these as separate plots
+
+react.mat[19, 2] <- sum(data_vaxPreg$dose1_chill[which(data_vaxPreg$dose1_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose1_tri %in% c("3rd")))
+
+react.mat[20, 2] <- sum(data_vaxPreg$dose1_fever[which(data_vaxPreg$dose1_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose1_tri %in% c("3rd")))
+
+react.mat[21, 2] <- sum(data_vaxPreg$dose1_naus[which(data_vaxPreg$dose1_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose1_tri %in% c("3rd")))
+
+react.mat <- as.data.frame(react.mat)
+react.mat$Effect <- factor(react.mat$Effect, levels = c("Redness, pain, or swelling at the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"), labels = c("Redness,\npain, or swelling\nat the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"))
+
+react.mat$N <- as.numeric(react.mat$N)
+react.mat$N <- round(react.mat$N*100, 1)
+
+
+
+rx.data.dose1 <- data_vaxPreg[,c("record_id_BL","dose1_red", "dose1_tired", "dose1_head", "dose1_musc", "dose1_chill", "dose1_fever", "dose1_naus", "dose1_tri")]
+## redness
+red.mod <- glmer(dose1_red ~ dose1_tri + (1|record_id_BL), data = rx.data.dose1, family = binomial)
+summary(red.mod)
+
+red.mm <- emmeans(red.mod, ~ dose1_tri)
+contrast(red.mm, method = "pairwise")
+# contrast  estimate    SE  df z.ratio p.value
+#  1st - 2nd   0.0680 0.118 Inf   0.576  0.8332
+#  1st - 3rd   0.0499 0.214 Inf   0.233  0.9705
+#  2nd - 3rd  -0.0181 0.204 Inf  -0.089  0.9957
+
+
+## tiredness
+tired.mod <- glmer(dose1_tired ~ dose1_tri + (1|record_id_BL), data = rx.data.dose1, family = binomial)
+summary(tired.mod)
+
+tired.mm <- emmeans(tired.mod, ~ dose1_tri)
+contrast(tired.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd   0.0673 0.106 Inf   0.636  0.8005
+ # 1st - 3rd   0.2532 0.193 Inf   1.309  0.3902
+ # 2nd - 3rd   0.1859 0.185 Inf   1.006  0.5733
+
+## headaches
+head.mod <- glmer(dose1_head ~ dose1_tri + (1|record_id_BL), data = rx.data.dose1, family = binomial)
+summary(head.mod)
+
+head.mm <- emmeans(head.mod, ~ dose1_tri)
+contrast(head.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd   0.0409 0.129 Inf   0.316  0.9464
+ # 1st - 3rd   0.1809 0.245 Inf   0.739  0.7402
+ # 2nd - 3rd   0.1400 0.235 Inf   0.596  0.8223
+
+
+## chills
+chill.mod <- glmer(dose1_chill ~ dose1_tri + (1|record_id_BL), data = rx.data.dose1[-which(is.na(rx.data.dose1$dose1_tri)),], family = binomial,control = glmerControl(optimizer = "bobyqa"))
+summary(chill.mod)
+
+chill.mm <- emmeans(chill.mod, ~ dose1_tri)
+contrast(chill.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd  0.23955 0.240 Inf   0.999  0.5772
+ # 1st - 3rd  0.23851 0.457 Inf   0.522  0.8605
+ # 2nd - 3rd -0.00104 0.445 Inf  -0.002  1.0000
+
+## muscle pain
+musc.mod <- glmer(dose1_musc ~ dose1_tri + (1|record_id_BL), data = rx.data.dose1, family = binomial)
+summary(musc.mod)
+
+musc.mm <- emmeans(musc.mod, ~ dose1_tri)
+contrast(musc.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd  -0.2172 0.112 Inf  -1.931  0.1300
+ # 1st - 3rd   0.0516 0.209 Inf   0.247  0.9669
+ # 2nd - 3rd   0.2688 0.199 Inf   1.354  0.3656
+
+
+## fever
+fever.mod <- glmer(dose1_fever ~ dose1_tri + (1|record_id_BL), data = rx.data.dose1, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+summary(fever.mod)
+
+fever.mm <- emmeans(fever.mod, ~ dose1_tri)
+contrast(fever.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd    0.244 0.330 Inf   0.738  0.7407
+ # 1st - 3rd   -0.451 0.489 Inf  -0.923  0.6255
+ # 2nd - 3rd   -0.695 0.468 Inf  -1.485  0.2982
+
+
+## nausea
+naus.mod <- glmer(dose1_naus ~ dose1_tri + (1|record_id_BL), data = rx.data.dose1, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+summary(naus.mod)
+
+naus.mm <- emmeans(naus.mod, ~ dose1_tri)
+contrast(naus.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd    0.208 0.216 Inf   0.960  0.6025
+ # 1st - 3rd    0.877 0.535 Inf   1.639  0.2291
+ # 2nd - 3rd    0.669 0.526 Inf   1.273  0.4107
+
+# quartz(width = 10, height = 4)
+ggplot(react.mat, aes(x = Effect, y = N, fill = Trimester, group = Trimester)) +
+  geom_col(position = position_dodge(), colour = "black") +
+  theme_pubr() +
+  scale_fill_manual(values = ghibli_palette("KikiMedium")[c(4, 6, 2)]) +
+  theme(panel.grid.major.y = element_line(linetype = 2, colour = "grey"),
+        panel.grid.minor.y = element_line(linetype = 3, colour = "grey"),
+        text = element_text(size = 13)) +
+  xlab("") +
+  ylab("% of participants receiving\n1st dose in the relevant trimester") +
+  guides(fill = guide_legend(title = "")) + ylim(0,100)+
+  annotate("text", x = c(0.7, 1, 1.3), y = react.mat[c(1, 8, 15), "N"] + 5, label = c("a", "a", "a")) +
+  annotate("text", x = c(1.7, 2, 2.3), y = react.mat[c(2, 9, 16), "N"] + 5, label = c("a", "a", "a")) +
+  annotate("text", x = c(2.7, 3, 3.3), y = react.mat[c(3, 10, 17), "N"] + 5, label = c("a", "a", "a")) +
+  annotate("text", x = c(3.7, 4, 4.3), y = react.mat[c(4, 11, 18), "N"] + 5, label = c("a", "a", "a")) +
+  annotate("text", x = c(4.7, 5, 5.3), y = react.mat[c(5, 12, 19), "N"] + 5, label = c("a", "a", "a")) +
+  annotate("text", x = c(5.7, 6, 6.3), y = react.mat[c(6, 13, 20), "N"] + 5, label = c("a", "a", "a")) +
+  annotate("text", x = c(6.7, 7, 7.3), y = react.mat[c(7, 14, 21), "N"] + 5, label = c("a", "a", "a"))
+ggsave(file="plot2.png", width=10, height=4, dpi=300)
+
+
+```
+
+```{r plot dose 2 reactogenicity by trimester, fig.width=8}
+
+react.mat <- matrix(nrow = 21, ncol = 3)
+colnames(react.mat) <- c("Effect", "N", "Trimester")
+react.mat[, 1] <- rep(c("Redness, pain, or swelling at the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"), 3)
+
+react.mat[, 3] <- c(rep("Trimester 1", 7), rep("Trimester 2", 7), rep("Trimester 3", 7))
+
+react.mat[1, 2] <- sum(data_vaxPreg$dose2_red[which(data_vaxPreg$dose2_tri %in% c("1st"))])/length(which(data_vaxPreg$dose2_tri %in% c("1st")))
+
+react.mat[2, 2] <- sum(data_vaxPreg$dose2_tired[which(data_vaxPreg$dose2_tri %in% c("1st"))])/length(which(data_vaxPreg$dose2_tri %in% c("1st")))
+
+react.mat[3, 2] <- sum(data_vaxPreg$dose2_head[which(data_vaxPreg$dose2_tri %in% c("1st"))])/length(which(data_vaxPreg$dose2_tri %in% c("1st")))
+
+react.mat[4, 2] <- sum(data_vaxPreg$dose2_musc[which(data_vaxPreg$dose2_tri %in% c("1st"))])/length(which(data_vaxPreg$dose2_tri %in% c("1st")))
+
+react.mat[5, 2] <- sum(data_vaxPreg$dose2_chill[which(data_vaxPreg$dose2_tri %in% c("1st"))])/length(which(data_vaxPreg$dose2_tri %in% c("1st")))
+
+react.mat[6, 2] <- sum(data_vaxPreg$dose2_fever[which(data_vaxPreg$dose2_tri %in% c("1st"))])/length(which(data_vaxPreg$dose2_tri %in% c("1st")))
+
+react.mat[7, 2] <- sum(data_vaxPreg$dose2_naus[which(data_vaxPreg$dose2_tri %in% c("1st"))])/length(which(data_vaxPreg$dose2_tri %in% c("1st")))
+
+
+react.mat[8, 2] <- sum(data_vaxPreg$dose2_red[which(data_vaxPreg$dose2_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose2_tri %in% c("2nd")))
+
+react.mat[9, 2] <- sum(data_vaxPreg$dose2_tired[which(data_vaxPreg$dose2_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose2_tri %in% c("2nd")))
+
+react.mat[10, 2] <- sum(data_vaxPreg$dose2_head[which(data_vaxPreg$dose2_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose2_tri %in% c("2nd")))
+
+react.mat[11, 2] <- sum(data_vaxPreg$dose2_musc[which(data_vaxPreg$dose2_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose2_tri %in% c("2nd")))
+
+react.mat[12, 2] <- sum(data_vaxPreg$dose2_chill[which(data_vaxPreg$dose2_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose2_tri %in% c("2nd")))
+
+react.mat[13, 2] <- sum(data_vaxPreg$dose2_fever[which(data_vaxPreg$dose2_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose2_tri %in% c("2nd")))
+
+react.mat[14, 2] <- sum(data_vaxPreg$dose2_naus[which(data_vaxPreg$dose2_tri %in% c("2nd"))])/length(which(data_vaxPreg$dose2_tri %in% c("2nd")))
+
+react.mat[15, 2] <- sum(data_vaxPreg$dose2_red[which(data_vaxPreg$dose2_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose2_tri %in% c("3rd")))
+
+react.mat[16, 2] <- sum(data_vaxPreg$dose2_tired[which(data_vaxPreg$dose2_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose2_tri %in% c("3rd")))
+
+react.mat[17, 2] <- sum(data_vaxPreg$dose2_head[which(data_vaxPreg$dose2_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose2_tri %in% c("3rd")))
+
+react.mat[18, 2] <- sum(data_vaxPreg$dose2_musc[which(data_vaxPreg$dose2_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose2_tri %in% c("3rd"))) 
+
+react.mat[19, 2] <- sum(data_vaxPreg$dose2_chill[which(data_vaxPreg$dose2_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose2_tri %in% c("3rd")))
+
+react.mat[20, 2] <- sum(data_vaxPreg$dose2_fever[which(data_vaxPreg$dose2_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose2_tri %in% c("3rd")))
+
+react.mat[21, 2] <- sum(data_vaxPreg$dose2_naus[which(data_vaxPreg$dose2_tri %in% c("3rd"))])/length(which(data_vaxPreg$dose2_tri %in% c("3rd")))
+
+react.mat <- as.data.frame(react.mat)
+react.mat$Effect <- factor(react.mat$Effect, levels = c("Redness, pain, or swelling at the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"), labels = c("Redness,\npain, or swelling\nat the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"))
+
+react.mat$N <- as.numeric(react.mat$N)
+react.mat$N <- round(react.mat$N*100, 1)
+
+
+
+#### 
+# rx.data.dose2 <- reshape(data_vaxPreg[, c("record_id_BL","dose2_red", "dose2_tired", "dose2_head", "dose2_musc", "dose2_chill", "dose2_fever", "dose2_naus", "dose3_red","dose2_tri")],
+#                    varying = list(
+#                      red = c("dose1_red", "dose2_red", "dose3_red"),
+#                      tired = c("dose1_tired", "dose2_tired", "dose3_tired"),
+#                      head = c("dose1_head", "dose2_head", "dose3_head"),
+#                      musc = c("dose1_musc", "dose2_musc", "dose3_musc"),
+#                      chills = c("dose1_chill", "dose2_chill", "dose3_chill"),
+#                      fever = c("dose1_fever", "dose2_fever", "dose3_fever"),
+#                      naus = c("dose1_naus", "dose2_naus", "dose3_naus"),
+#                      tri = c("dose1_tri", "dose2_tri", "dose3_tri"),
+#                      type = c("all_dose1_type", "all_dose2_type", "all_dose3_type")
+#                    ),idvar = "record_id_BL", ids = "record_id_BL", times = c("Trimester 1", "Trimester 2", "Trimester 3"), direction = "long")
+# 
+# ## now have to remove the dose specific ones that didn't occur in pregnancy
+# rx.data.dose2 <- rx.data.dose2 %>% 
+#   mutate(across(c("dose2_red", "dose2_tired", "dose2_head", "dose2_musc", "dose2_chill", "dose2_fever", "dose2_naus"), ~ ifelse(time == "Trimester 1" & dose2_tri %in% c("1st"), NA, .x))) %>% 
+#   mutate(across(c("dose2_red", "dose2_tired", "dose2_head", "dose2_musc", "dose2_chill", "dose2_fever", "dose2_naus"), ~ ifelse(time == "Trimester 2" & dose2_tri %in% c("2nd"), NA, .x))) %>% 
+#   mutate(across(c("dose2_red", "dose2_tired", "dose2_head", "dose2_musc", "dose2_chill", "dose2_fever", "dose2_naus"), ~ as.factor(.x)))
+
+# tab_xtab(rx.data.dose2$dose1_red, rx.data$time, show.col.prc = TRUE)
+
+rx.data.dose2 <- data_vaxPreg[,c("record_id_BL","dose2_red", "dose2_tired", "dose2_head", "dose2_musc", "dose2_chill", "dose2_fever", "dose2_naus", "dose2_tri")]
+
+rx.data.dose2 <- rx.data.dose2[-which(is.na(rx.data.dose2$dose2_tri)),]
+## redness
+red.mod <- glmer(dose2_red ~ dose2_tri + (1|record_id_BL), data = rx.data.dose2, family = binomial)
+summary(red.mod)
+
+red.mm <- emmeans(red.mod, ~ dose2_tri)
+contrast(red.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd    0.676 0.238 Inf   2.837  0.0127
+ # 1st - 3rd    0.529 0.246 Inf   2.154  0.0793
+ # 2nd - 3rd   -0.147 0.119 Inf  -1.230  0.4355
+
+
+## tiredness
+tired.mod <- glmer(dose2_tired ~ dose2_tri + (1|record_id_BL), data = rx.data.dose2, family = binomial)
+summary(tired.mod)
+
+tired.mm <- emmeans(tired.mod, ~ dose2_tri)
+contrast(tired.mm, method = "pairwise")
+# contrast  estimate    SE  df z.ratio p.value
+#  1st - 2nd    0.150 0.203 Inf   0.741  0.7393
+#  1st - 3rd    0.286 0.209 Inf   1.365  0.3596
+#  2nd - 3rd    0.135 0.113 Inf   1.202  0.4520
+
+## headaches
+head.mod <- glmer(dose2_head ~ dose2_tri + (1|record_id_BL), data = rx.data.dose2, family = binomial)
+summary(head.mod)
+
+head.mm <- emmeans(head.mod, ~ dose2_tri)
+contrast(head.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd    0.316 0.194 Inf   1.634  0.2312
+ # 1st - 3rd    0.586 0.203 Inf   2.887  0.0108
+ # 2nd - 3rd    0.269 0.118 Inf   2.291  0.0570
+
+
+## chills
+chill.mod <- glmer(dose2_chill ~ dose2_tri + (1|record_id_BL), data = rx.data.dose2, family = binomial)
+summary(chill.mod)
+
+chill.mm <- emmeans(chill.mod, ~ dose2_tri)
+contrast(chill.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd    0.876 1.013 Inf   0.864  0.6629
+ # 1st - 3rd    1.232 1.120 Inf   1.101  0.5137
+ # 2nd - 3rd    0.356 0.803 Inf   0.443  0.8973
+
+## muscle pain
+musc.mod <- glmer(dose2_musc ~ dose2_tri + (1|record_id_BL), data = rx.data.dose2, family = binomial)
+summary(musc.mod)
+
+musc.mm <- emmeans(musc.mod, ~ dose2_tri)
+contrast(musc.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd    0.335 0.191 Inf   1.754  0.1854
+ # 1st - 3rd    0.631 0.199 Inf   3.172  0.0043
+ # 2nd - 3rd    0.296 0.112 Inf   2.649  0.0220
+
+## fever
+fever.mod <- glmer(dose2_fever ~ dose2_tri + (1|record_id_BL), data = rx.data.dose2, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+summary(fever.mod)
+
+fever.mm <- emmeans(fever.mod, ~ dose2_tri)
+contrast(fever.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd    1.259 0.235 Inf   5.368  <.0001
+ # 1st - 3rd    1.382 0.255 Inf   5.409  <.0001
+ # 2nd - 3rd    0.123 0.195 Inf   0.630  0.8039
+
+
+## nausea
+naus.mod <- glmer(dose2_naus ~ dose2_tri + (1|record_id_BL), data = rx.data.dose2, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+summary(naus.mod)
+
+naus.mm <- emmeans(naus.mod, ~ dose2_tri)
+contrast(naus.mm, method = "pairwise")
+ # contrast  estimate    SE  df z.ratio p.value
+ # 1st - 2nd    0.836 0.226 Inf   3.701  0.0006
+ # 1st - 3rd    0.991 0.242 Inf   4.090  0.0001
+ # 2nd - 3rd    0.155 0.166 Inf   0.930  0.6212
+
+
+
+# quartz(width = 10, height = 4)
+ggplot(react.mat, aes(x = Effect, y = N, fill = Trimester, group = Trimester)) +
+  geom_col(position = position_dodge(), colour = "black") +
+  theme_pubr() +
+  scale_fill_manual(values = ghibli_palette("KikiMedium")[c(4, 6, 2)]) +
+  theme(panel.grid.major.y = element_line(linetype = 2, colour = "grey"),
+        panel.grid.minor.y = element_line(linetype = 3, colour = "grey"),
+        text = element_text(size = 13)) +
+  xlab("") +
+  ylab("% of participants receiving\n2nd dose in the relevant trimester") +
+  guides(fill = guide_legend(title = "")) + ylim(0,100) +
+  annotate("text", x = c(0.7, 1, 1.3), y = react.mat[c(1, 8, 15), "N"] + 5, label = c("a", "b", "b")) +
+  annotate("text", x = c(1.7, 2, 2.3), y = react.mat[c(2, 9, 16), "N"] + 5, label = c("a", "a", "a")) +
+  annotate("text", x = c(2.7, 3, 3.3), y = react.mat[c(3, 10, 17), "N"] + 5, label = c("a", "a", "b")) +
+  annotate("text", x = c(3.7, 4, 4.3), y = react.mat[c(4, 11, 18), "N"] + 5, label = c("a", "a", "b")) +
+  annotate("text", x = c(4.7, 5, 5.3), y = react.mat[c(5, 12, 19), "N"] + 5, label = c("a", "a", "a")) +
+  annotate("text", x = c(5.7, 6, 6.3), y = react.mat[c(6, 13, 20), "N"] + 5, label = c("a", "b", "b")) +
+  annotate("text", x = c(6.7, 7, 7.3), y = react.mat[c(7, 14, 21), "N"] + 5, label = c("a", "b", "b"))
+ggsave(file="plot3.png", width=10, height=4, dpi=300)
+
+
+```
+
+```{r comparison of reactions by dose}
+
+rx.data <- reshape(data_vaxPreg[, c("record_id_BL", "dose1_red", "dose1_tired", "dose1_head", "dose1_musc", "dose1_chill", "dose1_fever", "dose1_naus", "dose2_red", "dose2_tired", "dose2_head", "dose2_musc", "dose2_chill", "dose2_fever", "dose2_naus", "dose3_red", "dose3_tired", "dose3_head", "dose3_musc", "dose3_chill", "dose3_fever", "dose3_naus", "dose1_tri", "dose2_tri", "dose3_tri", "all_dose1_type", "all_dose2_type", "all_dose3_type", "vaccine_timing_fix")],
+                   varying = list(
+                     red = c("dose1_red", "dose2_red", "dose3_red"),
+                     tired = c("dose1_tired", "dose2_tired", "dose3_tired"),
+                     head = c("dose1_head", "dose2_head", "dose3_head"),
+                     musc = c("dose1_musc", "dose2_musc", "dose3_musc"),
+                     chills = c("dose1_chill", "dose2_chill", "dose3_chill"),
+                     fever = c("dose1_fever", "dose2_fever", "dose3_fever"),
+                     naus = c("dose1_naus", "dose2_naus", "dose3_naus"),
+                     tri = c("dose1_tri", "dose2_tri", "dose3_tri"),
+                     type = c("all_dose1_type", "all_dose2_type", "all_dose3_type")
+                   ),idvar = "record_id_BL", ids = "record_id_BL", times = c("Dose1", "Dose2", "Dose3"), direction = "long")
+
+## now have to remove the dose specific ones that didn't occur in pregnancy
+rx.data <- rx.data %>% 
+  mutate(across(c("dose1_red", "dose1_tired", "dose1_head", "dose1_musc", "dose1_chill", "dose1_fever", "dose1_naus"), ~ ifelse(time == "Dose2" & vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp"), NA, .x))) %>% 
+  mutate(across(c("dose1_red", "dose1_tired", "dose1_head", "dose1_musc", "dose1_chill", "dose1_fever", "dose1_naus"), ~ ifelse(time == "Dose3" & vaccine_timing_fix != "D123 in preg", NA, .x))) %>% 
+  mutate(across(c("dose1_red", "dose1_tired", "dose1_head", "dose1_musc", "dose1_chill", "dose1_fever", "dose1_naus"), ~ as.factor(.x)))
+
+tab_xtab(rx.data$dose1_red, rx.data$time, show.col.prc = TRUE)
+
+## redness
+red.mod <- glmer(dose1_red ~ time + (1|record_id_BL), data = rx.data, family = binomial)
+summary(red.mod)
+
+red.mm <- emmeans(red.mod, ~ time)
+contrast(red.mm, method = "pairwise")
+ # contrast      estimate    SE  df z.ratio p.value
+ # Dose1 - Dose2    0.558 0.132 Inf   4.226  0.0001
+ # Dose1 - Dose3    0.820 0.417 Inf   1.966  0.1206
+ # Dose2 - Dose3    0.262 0.416 Inf   0.629  0.8041
+
+
+## tiredness
+tired.mod <- glmer(dose1_tired ~ time + (1|record_id_BL), data = rx.data, family = binomial)
+summary(tired.mod)
+
+tired.mm <- emmeans(tired.mod, ~ time)
+contrast(tired.mm, method = "pairwise")
+ # contrast      estimate     SE  df z.ratio p.value
+ # Dose1 - Dose2   -0.679 0.0687 Inf  -9.878  <.0001
+ # Dose1 - Dose3    0.521 0.2450 Inf   2.128  0.0843
+ # Dose2 - Dose3    1.200 0.2474 Inf   4.851  <.0001
+
+## headaches
+head.mod <- glmer(dose1_head ~ time + (1|record_id_BL), data = rx.data, family = binomial)
+summary(head.mod)
+
+head.mm <- emmeans(head.mod, ~ time)
+contrast(head.mm, method = "pairwise")
+ # contrast      estimate     SE  df z.ratio p.value
+ # Dose1 - Dose2   -0.832 0.0793 Inf -10.493  <.0001
+ # Dose1 - Dose3    0.237 0.3011 Inf   0.786  0.7118
+ # Dose2 - Dose3    1.069 0.3030 Inf   3.528  0.0012
+
+
+## chills
+chill.mod <- glmer(dose1_chill ~ time + (1|record_id_BL), data = rx.data, family = binomial)
+summary(chill.mod)
+
+chill.mm <- emmeans(chill.mod, ~ time)
+contrast(chill.mm, method = "pairwise")
+ # contrast      estimate    SE  df z.ratio p.value
+ # Dose1 - Dose2   -5.556 0.323 Inf -17.178  <.0001
+ # Dose1 - Dose3   -0.436 0.683 Inf  -0.638  0.7993
+ # Dose2 - Dose3    5.120 0.724 Inf   7.076  <.0001
+
+## muscle pain
+musc.mod <- glmer(dose1_musc ~ time + (1|record_id_BL), data = rx.data, family = binomial)
+summary(musc.mod)
+
+musc.mm <- emmeans(musc.mod, ~ time)
+contrast(musc.mm, method = "pairwise")
+ # contrast      estimate     SE  df z.ratio p.value
+ # Dose1 - Dose2   -0.509 0.0779 Inf  -6.533  <.0001
+ # Dose1 - Dose3    0.592 0.2990 Inf   1.981  0.1168
+ # Dose2 - Dose3    1.101 0.3009 Inf   3.660  0.0007
+
+## fever
+fever.mod <- glmer(dose1_fever ~ time + (1|record_id_BL), data = rx.data, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+summary(fever.mod)
+
+fever.mm <- emmeans(fever.mod, ~ time)
+contrast(fever.mm, method = "pairwise")
+ # contrast      estimate    SE  df z.ratio p.value
+ # Dose1 - Dose2    -5.88 0.184 Inf -31.874  <.0001
+ # Dose1 - Dose3     4.87 1.797 Inf   2.710  0.0185
+ # Dose2 - Dose3    10.75 1.805 Inf   5.954  <.0001
+
+
+## nausea
+naus.mod <- glmer(dose1_naus ~ time + (1|record_id_BL), data = rx.data, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+summary(naus.mod)
+
+naus.mm <- emmeans(naus.mod, ~ time)
+contrast(naus.mm, method = "pairwise")
+ # contrast      estimate    SE  df z.ratio p.value
+ # Dose1 - Dose2   -3.468 0.301 Inf -11.514  <.0001
+ # Dose1 - Dose3    0.723 0.759 Inf   0.952  0.6070
+ # Dose2 - Dose3    4.191 0.784 Inf   5.345  <.0001
+
+
+## add annotations to the plot
+
+quartz(width = 10, height = 4)
+
+
+ggplot(react.mat, aes(x = Effect, y = N, fill = Dose, group = Dose)) +
+  geom_col(position = position_dodge(), colour = "black") +
+  theme_pubr() +
+  scale_fill_manual(values = ghibli_palette("KikiMedium")[c(4, 6, 2)]) +
+  theme(panel.grid.major.y = element_line(linetype = 2, colour = "grey"),
+        panel.grid.minor.y = element_line(linetype = 3, colour = "grey"),
+        text = element_text(size = 13)) +
+  xlab("") +
+  ylab("% of Participants\nreceiving dose in pregnancy") +
+  guides(fill = guide_legend(title = "")) +
+  annotate("text", x = c(0.7, 1, 1.3), y = react.mat[c(1, 8, 15), "N"] + 5, label = c("a", "b", "b")) +
+  annotate("text", x = c(1.7, 2, 2.3), y = react.mat[c(2, 9, 16), "N"] + 5, label = c("a", "b", "a")) +
+  annotate("text", x = c(2.7, 3, 3.3), y = react.mat[c(3, 10, 17), "N"] + 5, label = c("a", "b", "a")) +
+  annotate("text", x = c(3.7, 4, 4.3), y = react.mat[c(4, 11, 18), "N"] + 5, label = c("a", "b", "a")) +
+  annotate("text", x = c(4.7, 5, 5.3), y = react.mat[c(5, 12, 19), "N"] + 5, label = c("a", "b", "a")) +
+  annotate("text", x = c(5.7, 6, 6.3), y = react.mat[c(6, 13, 20), "N"] + 5, label = c("a", "b", "a")) +
+  annotate("text", x = c(6.7, 7, 7.3), y = react.mat[c(7, 14, 21), "N"] + 5, label = c("a", "b", "a"))
+ggsave(file="plot1.png", width=10, height=4, dpi=300)
+
+
+```
+
+```{r supp plot for reactions by type}
+rx.data <- rx.data[-which(is.na(rx.data$dose1_red)), ]
+
+rx.data2 <- rx.data %>% 
+  group_by(time, all_dose1_type) %>% 
+  summarise(across(dose1_red:dose1_naus, ~ sum(.x == 1)))
+
+rx.data3 <- rx.data %>% 
+  group_by(time, all_dose1_type) %>% 
+  summarise(across(dose1_red:dose1_naus, ~ length(.x)))
+
+rx.data4 <- left_join(rx.data2, rx.data3, by = c("time", "all_dose1_type"))
+rx.data4$ids <- paste0(rx.data4$time, rx.data4$all_dose1_type)
+
+rx.data5 <- reshape(as.data.frame(rx.data4), varying = list(
+  react = c("dose1_red.x", "dose1_tired.x", "dose1_head.x", "dose1_musc.x", "dose1_chill.x", "dose1_fever.x", "dose1_naus.x"),
+  totals = c("dose1_red.y", "dose1_tired.y", "dose1_head.y", "dose1_musc.y", "dose1_chill.y", "dose1_fever.y", "dose1_naus.y")), ids = rx.data4$ids, times = c("red", "tired", "head", "musc", "chill", "fever", "naus"), direction = "long")
+
+rx.data5 <- na.omit(rx.data5)
+
+rx.data5$prop <- rx.data5$dose1_red.x/rx.data5$dose1_red.y
+rx.data5 <- rx.data5 %>% 
+  mutate(
+    dose = case_when(
+      grepl("Dose1", ids) ~ "Dose 1",
+      grepl("Dose2", ids) ~ "Dose 2",
+      grepl("Dose3", ids) ~ "Dose 3",
+    )
+  )
+
+rx.data5$time <- factor(rx.data5$time, levels = c("red", "tired", "head", "musc", "chill", "fever", "naus"), labels = c("Redness, pain, or swelling at the injection site", "Tiredness", "Headache", "Muscle pain", "Chills", "Fever", "Nausea"))
+
+ggplot(rx.data5[-which(rx.data5$all_dose1_type %in% c("Combo", "Ad26.COV2.S", "ChAdOx1-S")), ], aes(x = time, y = prop, group = all_dose1_type, fill = all_dose1_type)) +
+  geom_col(position = position_dodge()) +
+  facet_wrap(~dose) +
+  scale_x_discrete(labels = scales::label_wrap(10))
+
+quartz(width = 12, height = 6)
+ggplot(rx.data5[-which(rx.data5$all_dose1_type %in% c("Combo", "Ad26.COV2.S", "ChAdOx1-S")), ], aes(y = time, x = prop, group = all_dose1_type, fill = all_dose1_type)) +
+  geom_col(position = position_dodge()) +
+  facet_wrap(~dose) +
+  scale_y_discrete(labels = scales::label_wrap(20)) +
+  scale_x_continuous(labels = scales::percent_format()) +
+  theme_pubr() +
+  scale_fill_manual(values = ghibli_palette("KikiMedium")[c(4, 6, 2)]) +
+  theme(panel.grid.major.y = element_line(linetype = 2, colour = "grey"),
+        panel.grid.minor.y = element_line(linetype = 3, colour = "grey"),
+        text = element_text(size = 14),
+        panel.spacing = unit(2, "lines"),
+        strip.text.x = element_text(size = 20)) +
+  ylab("") +
+  xlab("% of Participants\nreceiving dose in pregnancy") +
+  guides(fill = guide_legend(title = "", reverse = TRUE))
+
+ggsave(file="plot5_new.png", width=13, height=6, dpi=300)
+
+
+```
+
+
+```{r problems post vaccine}
+## new/worse problems
+# describeFactors(data$do7_problem)
+# describeFactors(data$do7_problem_BL) #
+# describeFactors(data$do7_problem_2mo)
+
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(dose1_newprob = case_when(
+    do7_problem_BL == 1 | do7_problem_2mo == 1 | do7_problem_4mo == 1 | do7_problem_6mo == 1 | do7_problem_8mo == 1 ~ 1,
+    TRUE ~ 0
+  ),
+  dose2_newprob = case_when(
+    dt7_problem_BL == 1 | dt7_problem_2mo == 1 | dt7_problem_4mo == 1 | dt7_problem_6mo == 1 | dt7_problem_8mo == 1 ~ 1,
+    TRUE ~ 0
+  ),
+  dose3_newprob = case_when(
+    dt7_problem_vb_BL == 1 | dt7_problem_vb_2mo == 1 | dt7_problem_vb_4mo == 1 | dt7_problem_vb_6mo == 1 | dt7_problem_vb_8mo == 1 | dt7_problem_vb_10mo == 1 | dt7_problem_vb_14mo == 1 ~ 1,
+    TRUE ~ 0)
+  )
+
+## prevented/stopped normal activity
+# describeFactors(data_vaxPreg$do8_normalactivi_2mo_BL) #
+# describeFactors(data_vaxPreg$do8_normalactivi_2mo_2mo) 
+# describeFactors(data_vaxPreg$do8_normalactivi_2mo)
+
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(dose1_act = case_when(
+    do8_normalactivity_BL == 1 | do8_normalactivity_2mo == 1 | do8_normalactivity_4mo == 1 ~ 1,
+    TRUE ~ 0
+  ),
+  dose2_act = case_when(
+    dt8_normalactivity_BL == 1 | dt8_normalactivity_2mo == 1 | dt8_normalactivity_4mo == 1 | dt8_normalactivity_6mo == 1~ 1,
+    TRUE ~ 0
+  ),
+  dose3_act = case_when(
+    dt8_normalactivity_vb_BL == 1 | dt8_normalactivity_vb_2mo == 1 | dt8_normalactivity_vb_4mo == 1 | dt8_normalactivity_vb_6mo == 1 | dt8_normalactivity_vb_8mo == 1 | dt8_normalactivity_vb_10mo == 1 | dt8_normalactivity_vb_14mo == 1 ~ 1,
+    TRUE ~ 0
+  ))
+
+## to see health care provider
+
+
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(dose1_hcp = case_when(
+    do9_hcp_BL == 1 | do9_hcp_2mo == 1 | do9_hcp_4mo == 1 ~ 1,
+    TRUE ~ 0
+  ),
+  dose2_hcp = case_when(
+    dt9_hcp_BL == 1 | dt9_hcp_2mo == 1 | dt9_hcp_4mo == 1 | dt9_hcp_6mo == 1  ~ 1,
+    TRUE ~ 0
+  ),
+  dose3_hcp = case_when(
+    dt9_hcp_vb_BL == 1 | dt9_hcp_vb_2mo == 1 | dt9_hcp_vb_4mo == 1 | dt9_hcp_vb_6mo == 1 | dt9_hcp_vb_8mo == 1 | dt9_hcp_vb_10mo == 1 | dt9_hcp_vb_14mo == 1  ~ 1,
+    TRUE ~ 0
+  ))
+
+## saw HCP
+# describeFactors(data_vaxPreg$do10_hcp_seen_BL) 
+# describeFactors(data_vaxPreg$do10_hcp_seen_2mo) #
+# describeFactors(data_vaxPreg$do9_hcp_2mo)
+
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(dose1_sawhcp = case_when(
+    do10_hcp_seen_BL == 1 | do10_hcp_seen_4mo == 1 ~ 1,
+    TRUE ~ 0
+  ),
+  dose2_sawhcp = case_when(
+    dt10_hcp_seen_BL == 1 | dt10_hcp_seen_2mo == 1 | dt10_hcp_seen_6mo == 1 ~ 1,
+    TRUE ~ 0
+  ),
+  dose3_sawhcp = case_when(
+    dt10_hcp_seen_vb_BL == 1 | dt10_hcp_seen_vb_2mo == 1 | dt10_hcp_seen_vb_6mo == 1 | dt10_hcp_seen_vb_8mo == 1  | dt10_hcp_seen_vb_10mo == 1 | dt10_hcp_seen_vb_14mo == 1 ~ 1,
+    TRUE ~ 0
+  ))
+
+## emergency room/urgent care
+# describeFactors(data_vaxPreg$do11_visit_2mope___3) 
+# describeFactors(data_vaxPreg$do11_visit_2mope___3_BL) #
+# describeFactors(data_vaxPreg$do11_visit_2mope___3_2mo)
+
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(dose1_er = case_when(
+    do11_visittype___3_BL == 1 | do11_visittype___3_2mo == 1 | do11_visittype___3_4mo == 1 | do11_visittype___3_6mo == 1 | do11_visittype___3_8mo == 1 | do11_visittype___3_10mo == 1 | do11_visittype___3_14mo == 1 ~ 1,
+    TRUE ~ 0
+  ),
+  dose2_er = case_when(
+    dt11_visittype___3_BL == 1 | dt11_visittype___3_2mo == 1 | dt11_visittype___3_4mo == 1 | dt11_visittype___3_6mo == 1 | dt11_visittype___3_8mo == 1 | dt11_visittype___3_10mo == 1 | dt11_visittype___3_14mo == 1  ~ 1,
+    TRUE ~ 0
+  ),
+  dose3_er = case_when(
+    dt11_visittype_vb___3_BL == 1 | dt11_visittype_vb___3_2mo == 1 | dt11_visittype_vb___3_4mo == 1 | dt11_visittype_vb___3_6mo == 1 | dt11_visittype_vb___3_8mo == 1 | dt11_visittype_vb___3_10mo == 1 | dt11_visittype_vb___3_14mo == 1  ~ 1,
+    TRUE ~ 0
+  ))
+
+## hospitalized
+# describeFactors(data_vaxPreg$do11_visit_2mope___4) 
+# describeFactors(data_vaxPreg$do11_visit_2mope___4_BL) #
+# describeFactors(data_vaxPreg$do11_visit_2mope___4_2mo)
+
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(dose1_hosp = case_when(
+    do11_visittype___4_BL == 1 | do11_visittype___4_2mo == 1 | do11_visittype___4_4mo == 1 | do11_visittype___4_6mo == 1 | do11_visittype___4_8mo == 1 | do11_visittype___4_10mo == 1 | do11_visittype___4_14mo == 1 ~ 1,
+    TRUE ~ 0
+  ),
+  dose2_hosp = case_when(
+    dt11_visittype___4_BL == 1 | dt11_visittype___4_2mo == 1 | dt11_visittype___4_4mo == 1 | dt11_visittype___4_6mo == 1 | dt11_visittype___4_8mo == 1 | dt11_visittype___4_10mo == 1 | dt11_visittype___4_14mo == 1  ~ 1,
+    TRUE ~ 0
+  ),
+  dose3_hosp = case_when(
+    dt11_visittype_vb___4_BL == 1 | dt11_visittype_vb___4_2mo == 1 | dt11_visittype_vb___4_4mo == 1 | dt11_visittype_vb___4_6mo == 1 | dt11_visittype_vb___4_8mo == 1 | dt11_visittype_vb___4_10mo == 1 | dt11_visittype_vb___4_14mo == 1  ~ 1,
+    TRUE ~ 0
+  ))
+
+## icu
+# describeFactors(data_vaxPreg$do18_icu) 
+# describeFactors(data_vaxPreg$dt18_icu_BL) 
+# describeFactors(data_vaxPreg$dt18_icu_2mo)
+
+data_vaxPreg <- data_vaxPreg %>% 
+  mutate(dose1_icu= case_when(
+    do18_icu_BL == 1  ~ 1,
+    TRUE ~ 0
+  ),
+  dose2_icu = case_when(
+    dt18_icu_BL == 1 | dt18_icu_2mo == 1 ~ 1,
+    TRUE ~ 0
+  ),
+  dose3_icu = case_when(
+    dt18_icu_vb_BL == 1    ~ 1,
+    TRUE ~ 0
+  ))
+
+## what were the problems described?
+describeFactors(data_vaxPreg$do12_diagnosis_BL[which(data_vaxPreg$vacc_in_preg == "vaccine in pregnancy")]) #12
+describeFactors(data_vaxPreg$do12_diagnosis_4mo[which(data_vaxPreg$vacc_in_preg == "vaccine in pregnancy")])
+
+# describeFactors(data_vaxPreg$dt12_diagnosis_BL[which(data_vaxPreg$vacc_in_preg == "Any vaccine in preg")]) #18
+# describeFactors(data_vaxPreg$dt12_diagnosis_2mo[which(data_vaxPreg$vacc_in_preg == "Any vaccine in preg")]) #2
+# 
+# describeFactors(data_vaxPreg$dt12_diagnosis_vb_BL[which(data_vaxPreg$vacc_in_preg == "Any vaccine in preg")]) #2
+# describeFactors(data_vaxPreg$dt12_diagnosis_vb_2mo[which(data_vaxPreg$vacc_in_preg == "Any vaccine in preg")]) #1
+# 
+# describeFactors(data_vaxPreg$do13_diagnosis_yes[which(data_vaxPreg$do12_diagnosis_BL == 1 & data_vaxPreg$Any_dose == "Any vaccine in preg")])
+# describeFactors(data_vaxPreg$dt13_diagnosis_yes_BL[which(data_vaxPreg$Any_dose == "Any vaccine in preg")])
+# describeFactors(data_vaxPreg$dt13_diagnosis_yes_2mo[which(data_vaxPreg$Any_dose == "Any vaccine in preg")])
+# describeFactors(data_vaxPreg$dt13_diagnosis_yes_vb_BL[which(data_vaxPreg$Any_dose == "Any vaccine in preg")])
+# describeFactors(data_vaxPreg$dt13_diagnosis_yes_vb_2mo[which(data_vaxPreg$Any_dose == "Any vaccine in preg")])
+
+data_vaxPreg$dose1_problems <- paste0(data_vaxPreg$do13_diagnosis_yes_BL)
+
+data_vaxPreg$dose2_problems <- paste0(data_vaxPreg$dt13_diagnosis_yes_BL, data_vaxPreg$dt13_diagnosis_yes_2mo, data_vaxPreg$dt13_diagnosis_yes_6mo, sep = "_")
+data_vaxPreg$dose2_problems <- gsub("NA", "", data_vaxPreg$dose2_problems)
+data_vaxPreg$dose2_problems <- gsub(" _", "", data_vaxPreg$dose2_problems)
+data_vaxPreg$dose2_problems <- gsub("_", "", data_vaxPreg$dose2_problems)
+
+data_vaxPreg$dose3_problems <- paste0(data_vaxPreg$dt13_diagnosis_yes_vb_BL, data_vaxPreg$dt13_diagnosis_yes_vb_2mo, data_vaxPreg$dt13_diagnosis_yes_vb_6mo, data_vaxPreg$dt13_diagnosis_yes_vb_8mo, data_vaxPreg$dt13_diagnosis_yes_vb_10mo, data_vaxPreg$dt13_diagnosis_yes_vb_14mo, sep = "_")
+data_vaxPreg$dose3_problems <- gsub("NA", "", data_vaxPreg$dose3_problems)
+data_vaxPreg$dose3_problems <- gsub(" _", "", data_vaxPreg$dose3_problems)
+data_vaxPreg$dose3_problems <- gsub("_", "", data_vaxPreg$dose3_problems)
+
+
+describeFactors(data_vaxPreg$dose1_problems)
+describeFactors(data_vaxPreg$dose1_newprob)
+describeFactors(data_vaxPreg$dose2_newprob)
+describeFactors(data_vaxPreg$dose3_newprob)
+describeFactors(data_vaxPreg$vaccine_timing_fix)
+
+
+
+## count the total number of doses
+data_vaxPreg$d1preg = case_when(
+ data_vaxPreg$vaccine_timing_fix == "D1 in preg, D2 pp, no D3" ~ "D1 in preg",
+ data_vaxPreg$vaccine_timing_fix == "D1 in preg, no D23" ~ "D1 in preg",
+ data_vaxPreg$vaccine_timing_fix == "D1 preg, D23 pp" ~ "D1 in preg",
+ data_vaxPreg$vaccine_timing_fix == "D12 in preg, D3 pp" ~ "D1 in preg",
+ data_vaxPreg$vaccine_timing_fix == "D12 in preg, no D3" ~ "D1 in preg",
+ data_vaxPreg$vaccine_timing_fix == "D123 in preg" ~ "D1 in preg"
+)
+
+
+data_vaxPreg$d2preg = case_when(
+ data_vaxPreg$vaccine_timing_fix == "D1 in preg, D2 pp, no D3" ~ "D2 not in preg",
+ data_vaxPreg$vaccine_timing_fix == "D1 in preg, no D23" ~ "D2 not in preg",
+ data_vaxPreg$vaccine_timing_fix == "D1 preg, D23 pp" ~ "D2 not in preg",
+ data_vaxPreg$vaccine_timing_fix == "D12 in preg, D3 pp" ~ "D2 in preg",
+ data_vaxPreg$vaccine_timing_fix == "D12 in preg, no D3" ~ "D2 in preg",
+ data_vaxPreg$vaccine_timing_fix == "D123 in preg" ~ "D2 in preg"
+)
+
+data_vaxPreg$d3preg = case_when(
+ data_vaxPreg$vaccine_timing_fix == "D1 in preg, D2 pp, no D3" ~ "D3 not in preg",
+ data_vaxPreg$vaccine_timing_fix == "D1 in preg, no D23" ~ "D3 not in preg",
+ data_vaxPreg$vaccine_timing_fix == "D1 preg, D23 pp" ~ "D3 not in preg",
+ data_vaxPreg$vaccine_timing_fix == "D12 in preg, D3 pp" ~ "D3 not in preg",
+ data_vaxPreg$vaccine_timing_fix == "D12 in preg, no D3" ~ "D3 not in preg",
+ data_vaxPreg$vaccine_timing_fix == "D123 in preg" ~ "D3 in preg"
+)
+
+describeFactors(data_vaxPreg$dose1_newprob)
+describeFactors(data_vaxPreg$dose2_newprob[which(data_vaxPreg$d2preg == "D2 in preg")])
+describeFactors(data_vaxPreg$dose3_newprob[which(data_vaxPreg$d3preg == "D3 in preg")])
+
+describeFactors(data_vaxPreg$d1preg)
+describeFactors(data_vaxPreg$d2preg)
+describeFactors(data_vaxPreg$d3preg)
+
+describeFactors(data_vaxPreg$dose1_hcp)
+describeFactors(data_vaxPreg$dose2_hcp[which(data_vaxPreg$d2preg == "D2 in preg")])
+describeFactors(data_vaxPreg$dose3_hcp[which(data_vaxPreg$d3preg == "D3 in preg")])
+
+describeFactors(data_vaxPreg$dose1_hosp)
+describeFactors(data_vaxPreg$dose2_hosp[which(data_vaxPreg$d2preg == "D2 in preg")])
+describeFactors(data_vaxPreg$dose3_hosp[which(data_vaxPreg$d3preg == "D3 in preg")])
+
+
+describeFactors(data_vaxPreg$dose1_problems)
+describeFactors(data_vaxPreg$dose2_problems[which(data_vaxPreg$d2preg == "D2 in preg")])
+describeFactors(data_vaxPreg$dose3_problems[which(data_vaxPreg$d3preg == "D3 in preg")])
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r plot of problems, fig.width = 8}
+prob.data <- reshape(data_vaxPreg[, c("record_id_BL", "dose1_newprob", "dose1_act","dose1_sawhcp", "dose1_er", "dose1_hosp", "dose1_icu", "dose2_newprob", "dose2_act","dose2_sawhcp", "dose2_er", "dose2_hosp", "dose2_icu", "dose3_newprob", "dose3_act","dose3_sawhcp", "dose3_er", "dose3_hosp", "dose3_icu", "dose1_tri", "dose2_tri", "dose3_tri", "all_dose1_type", "all_dose2_type", "all_dose3_type", "dose1_problems", "dose2_problems", "dose3_problems", "vaccine_timing_fix")],
+                   varying = list(
+                     newprob = c("dose1_newprob", "dose2_newprob", "dose3_newprob"),
+                     act = c("dose1_act", "dose2_act", "dose3_act"),
+                     saw_hcp = c("dose1_sawhcp", "dose2_sawhcp", "dose3_sawhcp"),
+                     er = c("dose1_er", "dose2_er", "dose3_er"),
+                     hosp = c("dose1_hosp", "dose2_hosp", "dose3_hosp"),
+                     icu = c("dose1_icu", "dose2_icu", "dose3_icu"),
+                     tri = c("dose1_tri", "dose2_tri", "dose3_tri"),
+                     type = c("all_dose1_type", "all_dose2_type", "all_dose3_type"),
+                     problems = c("dose1_problems", "dose2_problems", "dose3_problems")
+                   ),idvar = "record_id_BL", ids = "record_id_BL", times = c("Dose1", "Dose2", "Dose3"), direction = "long")
+
+## now have to remove the dose specific ones that didn't occur in pregnancy
+prob.data <- prob.data %>% 
+  mutate(across(c("dose1_newprob", "dose1_act","dose1_sawhcp", "dose1_er", "dose1_hosp", "dose1_icu"), ~ ifelse(time == "Dose2" & vaccine_timing_fix %in% c("D1 in preg, D2 pp, no D3", "D1 in preg, no D23", "D1 preg, D23 pp"), NA, .x))) %>% 
+  mutate(across(c("dose1_newprob", "dose1_act","dose1_sawhcp", "dose1_er", "dose1_hosp", "dose1_icu"), ~ ifelse(time == "Dose3" & vaccine_timing_fix != "D123 in preg", NA, .x))) %>% 
+  mutate(across(c("dose1_newprob", "dose1_act","dose1_sawhcp", "dose1_er", "dose1_hosp", "dose1_icu"), ~ as.factor(.x)))
+
+tab_xtab(prob.data$dose1_newprob, prob.data$time, show.col.prc = TRUE)
+
+tab_xtab(prob.data$dose1_act, prob.data$time, show.col.prc = TRUE)
+
+tab_xtab(prob.data$dose1_er, prob.data$time, show.col.prc = TRUE)
+
+tab_xtab(prob.data$dose1_hosp, prob.data$time, show.col.prc = TRUE)
+
+tab_xtab(prob.data$dose1_icu, prob.data$time, show.col.prc = TRUE)
+
+describeFactors(prob.data$dose1_problems)
+
+
+
+## need to ensure correct denominators
+prob.mat <- matrix(nrow = 18, ncol = 3)
+colnames(prob.mat) <- c("Effect", "N", "Dose")
+prob.mat[, 1] <- rep(c("New or worse\nhealth problem", "Prevented/stopped\nnormal activities", "Saw a healthcare\nprovider", "Emergency room\nUrgent care", "Hospitalized", "ICU admission"), 3)
+
+prob.mat[, 3] <- c(rep("Dose 1", 6), rep("Dose 2", 6), rep("Dose 3", 6))
+
+describeFactors(prob.data$vaccine_timing_fix) 
+
+prob.data$d1preg = case_when(
+ prob.data$vaccine_timing_fix == "D1 in preg, D2 pp, no D3" ~ "D1 in preg",
+ prob.data$vaccine_timing_fix == "D1 in preg, no D23" ~ "D1 in preg",
+ prob.data$vaccine_timing_fix == "D1 preg, D23 pp" ~ "D1 in preg",
+ prob.data$vaccine_timing_fix == "D12 in preg, D3 pp" ~ "D1 in preg",
+ prob.data$vaccine_timing_fix == "D12 in preg, no D3" ~ "D1 in preg",
+ prob.data$vaccine_timing_fix == "D123 in preg" ~ "D1 in preg"
+)
+
+
+prob.data$d2preg = case_when(
+ prob.data$vaccine_timing_fix == "D1 in preg, D2 pp, no D3" ~ "D2 not in preg",
+ prob.data$vaccine_timing_fix == "D1 in preg, no D23" ~ "D2 not in preg",
+ prob.data$vaccine_timing_fix == "D1 preg, D23 pp" ~ "D2 not in preg",
+ prob.data$vaccine_timing_fix == "D12 in preg, D3 pp" ~ "D2 in preg",
+ prob.data$vaccine_timing_fix == "D12 in preg, no D3" ~ "D2 in preg",
+ prob.data$vaccine_timing_fix == "D123 in preg" ~ "D2 in preg"
+)
+
+prob.data$d2preg = case_when(
+ prob.data$vaccine_timing_fix == "D1 in preg, D2 pp, no D3" ~ "D3 not in preg",
+ prob.data$vaccine_timing_fix == "D1 in preg, no D23" ~ "D3 not in preg",
+ prob.data$vaccine_timing_fix == "D1 preg, D23 pp" ~ "D3 not in preg",
+ prob.data$vaccine_timing_fix == "D12 in preg, D3 pp" ~ "D3 not in preg",
+ prob.data$vaccine_timing_fix == "D12 in preg, no D3" ~ "D3 not in preg",
+ prob.data$vaccine_timing_fix == "D123 in preg" ~ "D3 in preg"
+)
+
+
+
+
+prob.mat[1, 2] <- sum(prob.data$dose1_newprob[which(prob.data$d1preg == "D1 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d1preg == "D1 in preg"))
+prob.mat[2, 2] <- sum(prob.data$dose1_act[which(prob.data$d1preg == "D1 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d1preg == "D1 in preg"))
+prob.mat[3, 2] <- sum(prob.data$dose1_sawhcp[which(prob.data$d1preg == "D1 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d1preg == "D1 in preg"))
+prob.mat[4, 2] <- sum(prob.data$dose1_er[which(prob.data$d1preg == "D1 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d1preg == "D1 in preg"))
+prob.mat[5, 2] <- sum(prob.data$dose1_hosp[which(prob.data$d1preg == "D1 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d1preg == "D1 in preg"))
+prob.mat[6, 2] <- sum(prob.data$dose1_icu[which(prob.data$d1preg == "D1 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d1preg == "D1 in preg"))
+
+prob.mat[7, 2] <- sum(prob.data$dose2_newprob[which(prob.data$d2preg == "D2 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d2preg == "D2 in preg"))
+prob.mat[8, 2] <- sum(prob.data$dose2_act[which(prob.data$d2preg == "D2 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d2preg == "D2 in preg"))
+prob.mat[9, 2] <- sum(prob.data$dose2_sawhcp[which(prob.data$d2preg == "D2 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d2preg == "D2 in preg"))
+prob.mat[10, 2] <- sum(prob.data$dose2_er[which(prob.data$d2preg == "D2 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d2preg == "D2 in preg"))
+prob.mat[11, 2] <- sum(prob.data$dose2_hosp[which(prob.data$d2preg == "D2 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d2preg == "D2 in preg"))
+prob.mat[12, 2] <- sum(prob.data$dose2_icu[which(prob.data$d2preg == "D2 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d2preg == "D2 in preg"))
+
+prob.mat[13, 2] <- sum(prob.data$dose3_newprob[which(prob.data$d3preg == "D3 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d3preg == "D3 in preg"))
+prob.mat[14, 2] <- sum(prob.data$dose3_act[which(prob.data$d3preg == "D3 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d3preg == "D3 in preg"))
+prob.mat[15, 2] <- sum(prob.data$dose3_sawhcp[which(prob.data$d3preg == "D3 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d3preg == "D3 in preg"))
+prob.mat[16, 2] <- sum(prob.data$dose3_er[which(prob.data$d3preg == "D3 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d3preg == "D3 in preg"))
+prob.mat[17, 2] <- sum(prob.data$dose3_hosp[which(prob.data$d3preg == "D3 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d3preg == "D3 in preg"))
+prob.mat[18, 2] <- sum(prob.data$dose3_icu[which(prob.data$d3preg == "D3 in preg")] == "1", na.rm = TRUE)/length(which(prob.data$d3preg == "D3 in preg"))
+
+
+prob.mat <- as.data.frame(prob.mat)
+prob.mat$Effect <- factor(prob.mat$Effect, levels = c("New or worse\nhealth problem", "Prevented/stopped\nnormal activities", "Saw a healthcare\nprovider", "Emergency room\nUrgent care", "Hospitalized", "ICU admission"))
+
+prob.mat$N <- as.numeric(prob.mat$N)
+prob.mat$N <- round(prob.mat$N*100, 1)
+
+# quartz(width = 10, height = 4)
+ggplot(prob.mat, aes(x = Effect, y = N, fill = Dose, group = Dose)) +
+  geom_col(position = position_dodge(), colour = "black") +
+  theme_pubr() +
+  scale_fill_manual(values = ghibli_palette("KikiMedium")[c(4, 6, 2)]) +
+  theme(panel.grid.major.y = element_line(linetype = 2, colour = "grey"),
+        panel.grid.minor.y = element_line(linetype = 3, colour = "grey"),
+        text = element_text(size = 13),
+        axis.text.x = element_text(size = 10)) +
+  xlab("") +
+  ylab("% of Participants\nreceiving dose in pregnancy") +
+  guides(fill = guide_legend(title = "")) #+
+  # annotate("text", x = seq(0.75, 6.25, by = 0.5), y = prob.mat$N[c(1, 7, 2, 8, 3, 9, 4, 10, 5, 11, 6, 12)]+2, label = prob.mat$N[c(1, 7, 2, 8, 3, 9, 4, 10, 5, 11, 6, 12)])
+
+```
+
+```{r pregnancy outcomes}
+# first have to exclude the ones who had COVID in pregnancy
+## check the pregnant or still pregnant follow up and the covid follow up
+
+data$fu6_covid_date_2mo
+data$all_baby_dob
+
+data$all_covid_inf_date <- paste(data$fu6_covid_date_2mo, data$fu6_covid_date_4mo, data$fu6_covid_date_6mo, data$fu6_covid_date_8mo, data$fu6_covid_date_10mo, data$fu6_covid_date_14mo, sep = "_")
+
+data$all_covid_inf_date <- gsub("NA_", "", data$all_covid_inf_date)
+data$all_covid_inf_date <- gsub("_NA", "", data$all_covid_inf_date)
+data$all_covid_inf_date <- gsub("NA", NA_character_, data$all_covid_inf_date)  
+
+data <- data %>% 
+  mutate(
+    covid_in_preg = case_when(
+      as.Date(all_covid_inf_date) - as.Date(all_baby_dob) > 0 ~ "Covid after preg",
+      as.Date(all_covid_inf_date) - as.Date(all_baby_dob) < 0 ~ "Covid during preg",
+      (fu1_pregnant_2mo == 1 | fu1b_pregnant_2mo == 1) & fu4_covid_pos_2mo == 1 ~ "Covid during preg",
+      (fu1_pregnant_4mo == 1 | fu1b_pregnant_4mo == 1) & fu4_covid_pos_4mo == 1 ~ "Covid during preg",
+      (fu1b_pregnant_6mo == 1 & fu1c_samepreg_6mo == 1) & fu4_covid_pos_6mo == 1 ~ "Covid during preg",
+      (fu1b_pregnant_8mo == 1 & fu1c_samepreg_8mo == 1) & fu4_covid_pos_8mo == 1 ~ "Covid during preg",
+      (fu1b_pregnant_10mo == 1 & fu1c_samepreg_10mo == 1) & fu4_covid_pos_10mo == 1 ~ "Covid during preg",
+      (fu1b_pregnant_14mo == 1 & fu1c_samepreg_14mo == 1) & fu4_covid_pos_14mo == 1 ~ "Covid during preg",
+      TRUE ~ NA_character_
+    ))
+
+
+describeFactors(data$covid_in_preg)
+# Covid after preg  "1,190 (26.2%)"
+# Covid during preg "35 (0.8%)"    
+# Missing           "3,314 (73.0%)"
+
+
+data.preg <- data[-which(data$covid_in_preg == "Covid during preg"), ]
+
+
+####### preterm ####
+data.preg$p3i_preterm_BL
+
+data.preg$all_preterm <- paste(data.preg$p3i_preterm_BL, data.preg$p3i_preterm_2mo,
+                               data.preg$p3i_preterm_4mo, data.preg$p3i_preterm_6mo,
+                               data.preg$p3i_preterm_8mo, data.preg$p3i_preterm_10mo,
+                               data.preg$p3i_preterm_14mo, sep = "_")
+
+data.preg$all_preterm <- gsub("NA_", "", data.preg$all_preterm)
+data.preg$all_preterm <- gsub("_NA", "", data.preg$all_preterm)
+data.preg$all_preterm <- gsub("NA", NA_character_, data.preg$all_preterm)  
+data.preg$all_preterm <- gsub("0_0", 0, data.preg$all_preterm)
+describeFactors(data.preg$all_preterm)
+# 0       "4,210 (93.5%)"
+# 1       "250 (5.6%)"   
+# Missing "44 (1.0%)"
+
+## check with the ga at del? I think we just take their word for it
+describeFactors(data.preg$GA_del)
+
+### miscarriage ####
+data.preg$all_sa <- paste(data.preg$p1_situation___4_BL, data.preg$p1_situation___4_2mo,
+                               data.preg$p1_situation___4_4mo, data.preg$p1_situation___4_6mo,
+                               data.preg$p1_situation___4_8mo, data.preg$p1_situation___4_10mo,
+                               data.preg$p1_situation___4_14mo, sep = "_")
+
+data.preg$all_sa <- gsub("NA_", "", data.preg$all_sa)
+data.preg$all_sa <- gsub("_NA", "", data.preg$all_sa)
+data.preg$all_sa <- gsub("NA", NA_character_, data.preg$all_sa)  
+data.preg$all_sa <- gsub("0_0_0_0_0_0_0", 0, data.preg$all_sa)
+data.preg$all_sa <- gsub("0_0_0_0_0_0", 0, data.preg$all_sa)
+data.preg$all_sa <- gsub("0_0_0_0_0", 0, data.preg$all_sa)
+data.preg$all_sa <- gsub("0_0_0_0", 0, data.preg$all_sa)
+data.preg$all_sa <- gsub("0_0_0", 0, data.preg$all_sa)
+data.preg$all_sa <- gsub("0_0", 0, data.preg$all_sa)
+data.preg$all_sa <- gsub("0_1", 1, data.preg$all_sa)
+data.preg$all_sa <- gsub("0_1_0", 1, data.preg$all_sa)
+data.preg$all_sa <- gsub("1_0", 1, data.preg$all_sa)
+describeFactors(data.preg$all_sa)
+# 0 "4,482 (99.5%)"
+# 1 "22 (0.5%)" 
+
+## stillbirth ####
+data.preg$all_still <- paste(data.preg$p1_situation___6_BL, data.preg$p1_situation___6_2mo,
+                               data.preg$p1_situation___6_4mo, data.preg$p1_situation___6_6mo,
+                               data.preg$p1_situation___6_8mo, data.preg$p1_situation___6_10mo,
+                               data.preg$p1_situation___6_14mo, sep = "_")
+
+data.preg$all_still <- gsub("NA_", "", data.preg$all_still)
+data.preg$all_still <- gsub("_NA", "", data.preg$all_still)
+data.preg$all_still <- gsub("NA", NA_character_, data.preg$all_still)  
+data.preg$all_still <- gsub("0_0_0_0_0_0_0", 0, data.preg$all_still)
+data.preg$all_still <- gsub("0_0_0_0_0_0", 0, data.preg$all_still)
+data.preg$all_still <- gsub("0_0_0_0_0", 0, data.preg$all_still)
+data.preg$all_still <- gsub("0_0_0_0", 0, data.preg$all_still)
+data.preg$all_still <- gsub("0_0_0", 0, data.preg$all_still)
+data.preg$all_still <- gsub("0_0", 0, data.preg$all_still)
+data.preg$all_still <- gsub("0_1", 1, data.preg$all_still)
+data.preg$all_still <- gsub("0_1_0", 1, data.preg$all_still)
+data.preg$all_still <- gsub("1_0", 1, data.preg$all_still)
+describeFactors(data.preg$all_still)
+# 0 "4,499 (99.9%)"
+# 1 "5 (0.1%)" 
+
+
+## neonatal death ####
+data.preg$all_death <- paste(data.preg$p1_situation___7_BL, data.preg$p1_situation___7_2mo,
+                               data.preg$p1_situation___7_4mo, data.preg$p1_situation___7_6mo,
+                               data.preg$p1_situation___7_8mo, data.preg$p1_situation___7_10mo,
+                               data.preg$p1_situation___7_14mo, sep = "_")
+
+data.preg$all_death <- gsub("NA_", "", data.preg$all_death)
+data.preg$all_death <- gsub("_NA", "", data.preg$all_death)
+data.preg$all_death <- gsub("NA", NA_character_, data.preg$all_death)  
+data.preg$all_death <- gsub("0_0_0_0_0_0_0", 0, data.preg$all_death)
+data.preg$all_death <- gsub("0_0_0_0_0_0", 0, data.preg$all_death)
+data.preg$all_death <- gsub("0_0_0_0_0", 0, data.preg$all_death)
+data.preg$all_death <- gsub("0_0_0_0", 0, data.preg$all_death)
+data.preg$all_death <- gsub("0_0_0", 0, data.preg$all_death)
+data.preg$all_death <- gsub("0_0", 0, data.preg$all_death)
+data.preg$all_death <- gsub("0_1", 1, data.preg$all_death)
+data.preg$all_death <- gsub("0_1_0", 1, data.preg$all_death)
+data.preg$all_death <- gsub("1_0", 1, data.preg$all_death)
+describeFactors(data.preg$all_death)
+# 0 "4,501 (99.9%)"
+# 1 "3 (0.1%)" 
+
+#### mode of delivery ####
+data.preg$p12_delivered_BL
+
+data.preg$all_delivery_mode <- paste(data.preg$p12_delivered_BL, data.preg$p12_delivered_2mo,
+                               data.preg$p12_delivered_4mo, data.preg$p12_delivered_6mo,
+                               data.preg$p12_delivered_8mo, data.preg$p12_delivered_10mo,
+                               data.preg$p12_delivered_14mo, sep = "_")
+
+
+data.preg$all_delivery_mode <- gsub("NA_", "", data.preg$all_delivery_mode)
+data.preg$all_delivery_mode <- gsub("_NA", "", data.preg$all_delivery_mode)
+data.preg$all_delivery_mode <- gsub("NA", NA_character_, data.preg$all_delivery_mode) 
+data.preg$all_delivery_mode <- gsub("1_1", "vaginal", data.preg$all_delivery_mode) 
+data.preg$all_delivery_mode <- gsub("1", "vaginal", data.preg$all_delivery_mode) 
+data.preg$all_delivery_mode <- gsub("2_2", "assisted vaginal", data.preg$all_delivery_mode) 
+data.preg$all_delivery_mode <- gsub("2", "assisted vaginal", data.preg$all_delivery_mode) 
+data.preg$all_delivery_mode <- gsub("3_3", "cesarean", data.preg$all_delivery_mode) 
+data.preg$all_delivery_mode <- gsub("3", "cesarean", data.preg$all_delivery_mode) 
+describeFactors(data.preg$all_delivery_mode)
+# assisted vaginal "363 (8.1%)"   
+# cesarean         "1,369 (30.4%)"
+# vaginal          "2,727 (60.5%)"
+# Missing          "45 (1.0%)" 
+
+#### cholestasis ####
+data.preg$all_chole <- paste(data.preg$p3iii_cholestasis_BL, data.preg$p3iii_cholestasis_2mo,
+                               data.preg$p3iii_cholestasis_4mo, data.preg$p3iii_cholestasis_6mo,
+                               data.preg$p3iii_cholestasis_8mo, data.preg$p3iii_cholestasis_10mo,
+                               data.preg$p3iii_cholestasis_14mo, sep = "_")
+
+data.preg$all_chole <- gsub("NA_", "", data.preg$all_chole)
+data.preg$all_chole <- gsub("_NA", "", data.preg$all_chole)
+data.preg$all_chole <- gsub("NA", NA_character_, data.preg$all_chole)  
+data.preg$all_chole <- gsub("0_0", 0, data.preg$all_chole)
+data.preg$all_chole <- gsub("0", 0, data.preg$all_chole)
+data.preg$all_chole <- gsub("999", NA_character_, data.preg$all_chole)
+describeFactors(data.preg$all_chole)
+# 0       "4,383 (97.3%)"
+# 1       "52 (1.2%)"    
+# Missing "69 (1.5%)" 
+
+#### hypertension ####
+data.preg$all_hbp <- paste(data.preg$p3v_highbp_BL, data.preg$p3v_highbp_2mo,
+                               data.preg$p3v_highbp_4mo, data.preg$p3v_highbp_6mo,
+                               data.preg$p3v_highbp_8mo, data.preg$p3v_highbp_10mo,
+                               data.preg$p3v_highbp_14mo, sep = "_")
+
+data.preg$all_hbp <- gsub("NA_", "", data.preg$all_hbp)
+data.preg$all_hbp <- gsub("_NA", "", data.preg$all_hbp)
+data.preg$all_hbp <- gsub("NA", NA_character_, data.preg$all_hbp)  
+data.preg$all_hbp <- gsub("0_0", 0, data.preg$all_hbp)
+data.preg$all_hbp <- gsub("0_1", 1, data.preg$all_hbp)
+data.preg$all_hbp <- gsub("999", NA_character_, data.preg$all_hbp)
+describeFactors(data.preg$all_hbp)
+# 0       "4,061 (90.2%)"
+# 1       "374 (8.3%)"   
+# Missing "69 (1.5%)" 
+
+#### gestational diabetes ####
+data.preg$all_gdm <- paste(data.preg$p3xix_gestdiab_BL, data.preg$p3xix_gestdiab_2mo,
+                               data.preg$p3xix_gestdiab_4mo, data.preg$p3xix_gestdiab_6mo,
+                               data.preg$p3xix_gestdiab_8mo, data.preg$p3xix_gestdiab_10mo,
+                               data.preg$p3xix_gestdiab_14mo, sep = "_")
+
+data.preg$all_gdm <- gsub("NA_", "", data.preg$all_gdm)
+data.preg$all_gdm <- gsub("_NA", "", data.preg$all_gdm)
+data.preg$all_gdm <- gsub("NA", NA_character_, data.preg$all_gdm)  
+data.preg$all_gdm <- gsub("0_0", 0, data.preg$all_gdm)
+data.preg$all_gdm <- gsub("1", 1, data.preg$all_gdm)
+data.preg$all_gdm <- gsub("999", NA_character_, data.preg$all_gdm)
+describeFactors(data.preg$all_gdm)
+# 0       "4,087 (90.7%)"
+# 1       "352 (7.8%)"   
+# Missing "65 (1.4%)"
+
+#### thromboembolism ####
+data.preg$all_clot <- paste(data.preg$p3xxviii_clot_BL, data.preg$p3xxviii_clot_2mo,
+                               data.preg$p3xxviii_clot_4mo, data.preg$p3xxviii_clot_6mo,
+                               data.preg$p3xxviii_clot_8mo, data.preg$p3xxviii_clot_10mo,
+                               data.preg$p3xxviii_clot_14mo, sep = "_")
+
+data.preg$all_clot <- gsub("NA_", "", data.preg$all_clot)
+data.preg$all_clot <- gsub("_NA", "", data.preg$all_clot)
+data.preg$all_clot <- gsub("NA", NA_character_, data.preg$all_clot)  
+data.preg$all_clot <- gsub("0_0", 0, data.preg$all_clot)
+data.preg$all_clot <- gsub("1", 1, data.preg$all_clot)
+data.preg$all_clot <- gsub("999", NA_character_, data.preg$all_clot)
+describeFactors(data.preg$all_clot)
+# 0       "4,446 (98.7%)"
+# 1       "9 (0.2%)"     
+# Missing "49 (1.1%)" 
+
+
+#### iugr ####
+data.preg$all_iugr <- paste(data.preg$p3xxiii_igr_BL, data.preg$p3xxiii_igr_2mo,
+                               data.preg$p3xxiii_igr_4mo, data.preg$p3xxiii_igr_6mo,
+                               data.preg$p3xxiii_igr_8mo, data.preg$p3xxiii_igr_10mo,
+                               data.preg$p3xxiii_igr_14mo, sep = "_")
+
+data.preg$all_iugr <- gsub("NA_", "", data.preg$all_iugr)
+data.preg$all_iugr <- gsub("_NA", "", data.preg$all_iugr)
+data.preg$all_iugr <- gsub("NA", NA_character_, data.preg$all_iugr)  
+data.preg$all_iugr <- gsub("0_0", 0, data.preg$all_iugr)
+data.preg$all_iugr <- gsub("1", 1, data.preg$all_iugr)
+data.preg$all_iugr <- gsub("999", NA_character_, data.preg$all_iugr)
+describeFactors(data.preg$all_iugr)
+# 0       "4,277 (95.0%)"
+# 1       "158 (3.5%)"   
+# Missing "69 (1.5%)" 
+
+
+#### hellp ####
+data.preg$all_hellp <- paste(data.preg$p3vii_hellp_BL, data.preg$p3vii_hellp_2mo,
+                               data.preg$p3vii_hellp_4mo, data.preg$p3vii_hellp_6mo,
+                               data.preg$p3vii_hellp_8mo, data.preg$p3vii_hellp_10mo,
+                               data.preg$p3vii_hellp_14mo, sep = "_")
+
+data.preg$all_hellp <- gsub("NA_", "", data.preg$all_hellp)
+data.preg$all_hellp <- gsub("_NA", "", data.preg$all_hellp)
+data.preg$all_hellp <- gsub("NA", NA_character_, data.preg$all_hellp)  
+data.preg$all_hellp <- gsub("0_0", 0, data.preg$all_hellp)
+data.preg$all_hellp <- gsub("1", 1, data.preg$all_hellp)
+data.preg$all_hellp <- gsub("999", NA_character_, data.preg$all_hellp)
+describeFactors(data.preg$all_hellp)
+# 0       "4,422 (98.2%)"
+# 1       "17 (0.4%)"    
+# Missing "65 (1.4%)" 
+
+
+#### abn us ####
+data.preg$all_abn_us <- paste(data.preg$p3xvi_us_BL, data.preg$p3xvi_us_2mo,
+                               data.preg$p3xvi_us_4mo, data.preg$p3xvi_us_6mo,
+                               data.preg$p3xvi_us_8mo, data.preg$p3xvi_us_10mo,
+                               data.preg$p3xvi_us_14mo, sep = "_")
+
+data.preg$all_abn_us <- gsub("NA_", "", data.preg$all_abn_us)
+data.preg$all_abn_us <- gsub("_NA", "", data.preg$all_abn_us)
+data.preg$all_abn_us <- gsub("NA", NA_character_, data.preg$all_abn_us)  
+data.preg$all_abn_us <- gsub("0_0", 0, data.preg$all_abn_us)
+data.preg$all_abn_us <- gsub("0_1", 0, data.preg$all_abn_us)
+data.preg$all_abn_us <- gsub("1", 1, data.preg$all_abn_us)
+data.preg$all_abn_us <- gsub("999", NA_character_, data.preg$all_abn_us)
+describeFactors(data.preg$all_abn_us)
+# 0       "4,271 (94.8%)"
+# 1       "176 (3.9%)"   
+# Missing "57 (1.3%)" 
+
+data.preg$p15_complications_other_BL
+review_this <- data.preg[,c("p15_complications_other_BL","p15_complications_info_BL")]
+
+
+toMatch <- c("PPH","Postpartum hemorrhage","Hemorrage","hemorrhage","excess blood loss","post partum hemorrhage","hémorrage","Hemerage","Haemorrhage","2.5 litres of blood lost","Couldn't stop the bleeding post birth","Lost about a litre of blood during delievery","postpartum hemorrhaging","post delivery bleeding","hemorrhaging","hemorrage","great deal of blood loss","Excessive blood loss resulting in 3 shots of oxytocin","Retained placenta with blood loss","Postpartum haemorrhage  due to issues with placenta tearing","Retained placent causing post partum hemorrhage","Lost 2.5L of blood due to retained placenta","postpartum hemorrhage at 11 days due to retained placenta")
+
+data.preg$pph <- grepl(paste(toupper(toMatch),collapse="|"), toupper(data.preg$p15_complications_info_BL))
+
+
+
+```
+
+
+
+```{r table preg outcomes}
+
+data.preg$vacc_in_preg <- as.factor(data.preg$vacc_in_preg)
+data.preg$all_preterm <- as.factor(data.preg$all_preterm)
+data.preg$all_chole <- as.factor(data.preg$all_chole)
+data.preg$all_hbp <- as.factor(data.preg$all_hbp)
+data.preg$all_hellp <- as.factor(data.preg$all_hellp)
+data.preg$all_gdm <- as.factor(data.preg$all_gdm)
+data.preg$all_clot <- as.factor(data.preg$all_clot)
+data.preg$all_iugr <- as.factor(data.preg$all_iugr)
+data.preg$all_abn_us <- as.factor(data.preg$all_abn_us)
+data.preg$all_death <- as.factor(data.preg$all_death)
+data.preg$all_still <- as.factor(data.preg$all_still)
+data.preg$all_sa <- as.factor(data.preg$all_sa)
+data.preg$gest_age_at_entry <- factor(data.preg$gest_age_at_entry, levels = c("Not Pregnant","1st Trimester","2nd Trimester", "3rd Trimester"))
+data.preg$pph <- as.factor(data.preg$pph)
+
+getT1Stat <- function(varname, digits=0, useNA = "no"){
+  getDescriptionStatsBy(data.preg[, varname], 
+                        data.preg$vacc_in_preg, 
+                        add_total_col=TRUE,
+                        show_all_values=TRUE, 
+                        hrzl_prop=FALSE,
+                       # statistics = list("continuous" = getPvalAnova, "proportion" = getPvalChiSq, "factor" = getPvalChiSq), 
+                        statistics = TRUE,
+                        html=TRUE, 
+                        useNA = useNA,
+                        digits=digits,
+                        header_count = TRUE,
+                        continuous_fn = describeMean
+                        )
+}
+
+getT1Stat.median <- function(varname, digits=0, useNA = "no"){
+  getDescriptionStatsBy(data.preg[, varname], 
+                        data.preg$vacc_in_preg, 
+                        add_total_col=TRUE,
+                        show_all_values=TRUE, 
+                        hrzl_prop=FALSE,
+                        statistics=TRUE, 
+                        html=TRUE, 
+                        useNA = useNA,
+                        digits=digits,
+                        header_count = TRUE,
+                        continuous_fn = describeMedian)
+}
+
+
+table_data.preg <- list()
+
+table_data.preg[["Cholestasis"]] <- getT1Stat("all_chole", 1)
+table_data.preg[["High blood pressure or pre- eclampsia"]] <- getT1Stat("all_hbp", 1)
+table_data.preg[["HELLP syndrome "]] <- getT1Stat("all_hellp", 2)
+table_data.preg[["Gestational diabetes"]] <- getT1Stat("all_gdm", 1)
+table_data.preg[["Blood clot during pregnancy (Deep venous thrombosis/DVT, pulmonary embolus/PE)"]] <- getT1Stat("all_clot", 2)
+table_data.preg[["Intrauterine growth restriction"]] <- getT1Stat("all_iugr", 1)
+table_data.preg[["Abnormality of the baby found on ultrasound"]] <- getT1Stat("all_abn_us", 1) # maybe should be in infant outcomes? Although these are just by pregnancy and not infant
+table_data.preg[["Mode of delivery"]] <- getT1Stat("all_delivery_mode", 1)
+table_data.preg[["Neonatal death"]] <- getT1Stat("all_death", 2)
+table_data.preg[["Stillbirth"]] <- getT1Stat("all_still", 2)
+table_data.preg[["Spontaneous abortion"]] <- getT1Stat("all_sa", 2)
+table_data.preg[["Preterm"]] <- getT1Stat("all_preterm", 1)
+table_data.preg[["Post Partum Hemorrhage"]] <- getT1Stat("pph", 1)
+
+
+
+
+names_to_var <- as.data.frame(matrix(data = NA, nrow = length(names(table_data.preg)), ncol = 2))
+colnames(names_to_var) <- c("names","varnames")
+names_to_var$names <- names(table_data.preg)
+names_to_var$varnames <- c("all_chole","all_hbp","all_hellp","all_gdm","all_clot","all_iugr","all_abn_us","all_delivery_mode","all_death","all_still","all_sa","all_preterm","pph")
+
+# Now merge everything into a matrix
+# and create the rgroup & n.rgroup variabels
+rgroup <- c()
+n.rgroup <- c()
+output_data.preg <- NULL
+for (varlabel in names(table_data.preg)) {
+  rgroup <- c(rgroup,
+              varlabel)
+  n.rgroup <- c(n.rgroup,
+                nrow(table_data.preg[[varlabel]]))
+  
+  var_name2 <- names_to_var$varnames[which(names_to_var$names == varlabel)]
+  p_val_2 <- 100
+  
+  if(var_name2 %in% c("all_sa")){
+
+    
+    # data_sa <- data.preg[which(data.preg$gest_age_at_entry != "Not Pregnant"),]
+    table_cont <- table(data.preg[,var_name2],data.preg$vacc_in_preg)
+    fisher_test <- fisher.test(table_cont)
+    OR_1 <- round(fisher_test$estimate[1],digits = 2)
+    CI_LOWER <- round(fisher_test$conf.int[1],digits = 2)
+    CI_UPPER <- round(fisher_test$conf.int[2],digits = 2)
+    p_val_2 <- round(fisher_test$p.value,digits = 2)
+    
+    # f1 <- formula(paste(var_name2,"~","vacc_in_preg + gest_age_at_entry"))
+    # model <- glm(f1, data = data.preg, family = binomial)
+    # summodel <- summary(model)$coefficients
+    # 
+    # OR_1 <- round(exp(summodel[2,1]), digits = 2)
+    # CI_LOWER <- round(exp(summodel[2,1] - 1.96*summodel[2,2]), digits = 2)
+    # CI_UPPER <- round(exp(summodel[2,1] + 1.96*summodel[2,2]), digits = 2)
+  }
+  else if(var_name2 %in% c("all_delivery_mode")){
+    
+    data.preg$cesarean <- data.preg$all_delivery_mode
+    data.preg$cesarean[which(data.preg$cesarean == "assisted vaginal")] <- "cesarean"
+    
+    table_cont <- table(data.preg$cesarean,data.preg$vacc_in_preg)
+
+    fisher_test <- fisher.test(table_cont)
+    OR_1 <- round(fisher_test$estimate[1],digits = 2)
+    CI_LOWER <- round(fisher_test$conf.int[1],digits = 2)
+    CI_UPPER <- round(fisher_test$conf.int[2],digits = 2)
+    p_val_2 <- round(fisher_test$p.value,digits = 2)    
+  }
+  else{
+    table_cont <- table(data.preg[,var_name2],data.preg$vacc_in_preg)
+    fisher_test <- fisher.test(table_cont)
+    OR_1 <- round(fisher_test$estimate[1],digits = 2)
+    CI_LOWER <- round(fisher_test$conf.int[1],digits = 2)
+    CI_UPPER <- round(fisher_test$conf.int[2],digits = 2)
+    p_val_2 <- round(fisher_test$p.value,digits = 2)
+  }
+  
+  output_data.preg <- rbind(output_data.preg, cbind(table_data.preg[[varlabel]],paste(OR_1, ":",CI_LOWER,"-",CI_UPPER),p_val_2))
+
+}
+
+
+
+
+# Add a column spanner for the columns
+cgroup <- c("", "Dose timing")
+n.cgroup <- c(1, 5)
+colnames(output_data.preg) <- gsub("[ ]*Dose timing", "", colnames(output_data.preg))
+
+htmlTable::htmlTable(output_data.preg, align = "rrrr",
+          rgroup = rgroup, n.rgroup = n.rgroup,
+          css.rgroup.sep = "",
+          cgroup = cgroup,
+          n.cgroup = n.cgroup,
+          rowlabel = "",
+          caption = "Table 1. Demographic and clinical history # summary",
+          ctable = TRUE)  %>% htmltools::html_print()
+
+
+## compare all preg outcomes
+prop.test(c(2375, 1631), n = c(2411, 1643))
+
+prop.test(c(2, 0), n = c(2411, 1643))
+
+prop.test(x = c(27, 10), n = c(2411, 1643))
+
+prop.test(x = c(4, 1), n = c(2411, 1643))
+
+prop.test(x = c(3, 1), n = c(2411, 1643))
+
+# 3 695/443 184 (0.83%)
+
+prop.test(x = c(4, 3695), n = c(2958, 443184))
+
+```
+
+```{r neonatal outcomes}
+## p15_complications_other
+## p15_complications_info
+
+
+data.preg$p15_complications_other_BL
+review_this <- data.preg[,c("p15_complications_other_BL","p15_complications_info_BL")]
+
+
+toMatch <- c("PPH","Postpartum hemorrhage","Hemorrage","hemorrhage","excess blood loss","post partum hemorrhage","hémorrage","Hemerage","Haemorrhage","2.5 litres of blood lost","Couldn't stop the bleeding post birth","Lost about a litre of blood during delievery","postpartum hemorrhaging","post delivery bleeding","hemorrhaging","hemorrage","great deal of blood loss","Excessive blood loss resulting in 3 shots of oxytocin","Retained placenta with blood loss","Postpartum haemorrhage  due to issues with placenta tearing","Retained placent causing post partum hemorrhage","Lost 2.5L of blood due to retained placenta","postpartum hemorrhage at 11 days due to retained placenta")
+
+data.preg$pph <- grepl(paste(toupper(toMatch),collapse="|"), toupper(data.preg$p15_complications_info_BL))
+
+
+## bleeding
+#### NICU ####
+
+
+data.preg$NICU_any1 <- paste(data.preg$n1_nicu1_BL, data.preg$n1_nicu1_2mo,
+                               data.preg$n1_nicu1_4mo, data.preg$n1_nicu1_6mo,
+                               data.preg$n1_nicu1_8mo, data.preg$n1_nicu1_10mo,
+                               data.preg$n1_nicu1_14mo,  sep = "_")
+
+data.preg$NICU_any1 <- gsub("NA_", "", data.preg$NICU_any1)
+data.preg$NICU_any1 <- gsub("0_0", 0, data.preg$NICU_any1)
+data.preg$NICU_any1 <- gsub("0_NA", 0, data.preg$NICU_any1)
+data.preg$NICU_any1 <- gsub("1_NA", 1, data.preg$NICU_any1)
+# data.preg$NICU_any <- gsub(, NA_character_, data.preg$NICU_any)
+describeFactors(data.preg$NICU_any1)
+# 0  "4,036 (89.6%)"
+# 1  "415 (9.2%)"   
+# NA "53 (1.2%)"  
+
+
+data.preg$NICU_any2 <- paste(data.preg$n1_nicu2_BL, data.preg$n1_nicu2_2mo,
+                               data.preg$n1_nicu2_4mo, data.preg$n1_nicu2_6mo,
+                               data.preg$n1_nicu2_8mo, data.preg$n1_nicu2_10mo,
+                               data.preg$n1_nicu2_14mo,  sep = "_")
+
+data.preg$NICU_any2 <- gsub("NA_", "", data.preg$NICU_any2)
+data.preg$NICU_any2 <- gsub("_", "", data.preg$NICU_any2)
+# data.preg$NICU_any <- gsub(, NA_character_, data.preg$NICU_any)
+describeFactors(data.preg$NICU_any2)
+
+data.preg$NICU_any3 <- paste(data.preg$n1_nicu3_BL, data.preg$n1_nicu3_2mo,
+                               data.preg$n1_nicu3_4mo, data.preg$n1_nicu3_6mo,
+                               data.preg$n1_nicu3_8mo, data.preg$n1_nicu3_10mo,
+                               data.preg$n1_nicu3_14mo,  sep = "_")
+
+data.preg$NICU_any3 <- gsub("NA_", "", data.preg$NICU_any3)
+data.preg$NICU_any3 <- gsub("_", "", data.preg$NICU_any3)
+# data.preg$NICU_any <- gsub(, NA_character_, data.preg$NICU_any)
+describeFactors(data.preg$NICU_any3)
+
+### NICU > 24 hours
+data.preg$all_nicu1_admission <- paste(data.preg$n2_admission1_BL, data.preg$n2_admission1_2mo, 
+                                       data.preg$n2_admission1_4mp, data.preg$n2_admission1_6mo,
+                                       data.preg$n2_admission1_8mo, data.preg$n2_admission1_10mo,
+                                       data.preg$n2_admission1_14mo, sep = "_")
+
+data.preg$all_nicu1_admission <- gsub("NA_", "", data.preg$all_nicu1_admission)
+data.preg$all_nicu1_admission <- gsub("_", "", data.preg$all_nicu1_admission)
+describeFactors(data.preg$all_nicu1_admission)
+
+data.preg$all_nicu2_admission <- paste(data.preg$n2_admission2_BL, data.preg$n2_admission2_2mo, 
+                                       data.preg$n2_admission2_4mp, data.preg$n2_admission2_6mo,
+                                       data.preg$n2_admission2_8mo, data.preg$n2_admission2_10mo,
+                                       data.preg$n2_admission2_14mo, sep = "_")
+
+data.preg$all_nicu2_admission <- gsub("NA_", "", data.preg$all_nicu2_admission)
+data.preg$all_nicu2_admission <- gsub("_", "", data.preg$all_nicu2_admission)
+describeFactors(data.preg$all_nicu2_admission)
+
+data.preg$all_nicu3_admission <- paste(data.preg$n2_admission3_BL, data.preg$n2_admission3_2mo,
+                                       data.preg$n2_admission3_4mp, data.preg$n2_admission3_6mo,
+                                       data.preg$n2_admission3_8mo, data.preg$n2_admission3_10mo,
+                                       data.preg$n2_admission3_14mo, sep = "_")
+
+data.preg$all_nicu3_admission <- gsub("NA_", "", data.preg$all_nicu3_admission)
+data.preg$all_nicu3_admission <- gsub("_", "", data.preg$all_nicu3_admission)
+describeFactors(data.preg$all_nicu3_admission)
+
+data.preg$all_nicu1_discharge <- paste(data.preg$n3_dicharge1_BL, data.preg$n3_dicharge1_2mo, 
+                                       data.preg$n3_dicharge1_4mp, data.preg$n3_dicharge1_6mo,
+                                       data.preg$n3_dicharge1_8mo, data.preg$n3_dicharge1_10mo,
+                                       data.preg$n3_dicharge1_14mo, sep = "_")
+
+data.preg$all_nicu1_discharge <- gsub("NA_", "", data.preg$all_nicu1_discharge)
+data.preg$all_nicu1_discharge <- gsub("_", "", data.preg$all_nicu1_discharge)
+describeFactors(data.preg$all_nicu1_discharge)
+
+data.preg$all_nicu2_discharge <- paste(data.preg$n3_dicharge2_BL, data.preg$n3_dicharge2_2mo, 
+                                       data.preg$n3_dicharge2_4mp, data.preg$n3_dicharge2_6mo,
+                                       data.preg$n3_dicharge2_8mo, data.preg$n3_dicharge2_10mo,
+                                       data.preg$n3_dicharge2_14mo, sep = "_")
+
+data.preg$all_nicu2_discharge <- gsub("NA_", "", data.preg$all_nicu2_discharge)
+data.preg$all_nicu2_discharge <- gsub("_", "", data.preg$all_nicu2_discharge)
+describeFactors(data.preg$all_nicu2_discharge)
+
+data.preg$all_nicu3_discharge <- paste(data.preg$n3_dicharge3_BL, data.preg$n3_dicharge3_2mo,
+                                       data.preg$n3_dicharge3_4mp, data.preg$n3_dicharge3_6mo,
+                                       data.preg$n3_dicharge3_8mo, data.preg$n3_dicharge3_10mo,
+                                       data.preg$n3_dicharge3_14mo, sep = "_")
+
+data.preg$all_nicu3_discharge <- gsub("NA_", "", data.preg$all_nicu3_discharge)
+data.preg$all_nicu3_discharge <- gsub("_", "", data.preg$all_nicu3_discharge)
+describeFactors(data.preg$all_nicu3_discharge)
+
+data.preg$baby1_nicu_los <- as.numeric(as.Date(data.preg$all_nicu1_discharge) - as.Date(data.preg$all_nicu1_admission))
+summary(data.preg$baby1_nicu_los)
+data.preg$baby1_nicu_los <- ifelse(data.preg$baby1_nicu_los < 1, "0", 1)
+
+data.preg$baby2_nicu_los <- as.numeric(as.Date(data.preg$all_nicu2_discharge, format = "%Y-%m-%d") - as.Date(data.preg$all_nicu2_admission, format = "%Y-%m-%d"))
+data.preg$baby2_nicu_los <- ifelse(data.preg$baby2_nicu_los < 1, "0", 1)
+
+data.preg$baby3_nicu_los <- as.numeric(as.Date(data.preg$all_nicu3_discharge, format = "%Y-%m-%d") - as.Date(data.preg$all_nicu3_admission, format = "%Y-%m-%d"))
+data.preg$baby3_nicu_los <- ifelse(data.preg$baby3_nicu_los < 1, "0", 1)
+# summary(data.preg$baby3_nicu_los)
+
+### birth weight baby1 ####
+data.preg$i3_birthweight_lb1.comb <- paste0(data.preg$i3_birthweight_lb1_BL, data.preg$i3_birthweight_lb1_2mo, data.preg$i3_birthweight_lb1_4mo, data.preg$i3_birthweight_lb1_6mo, data.preg$i3_birthweight_lb1_8mo, data.preg$i3_birthweight_lb1_10mo, data.preg$i3_birthweight_lb1_14mo, sep="/")
+
+
+describeFactors(data.preg$i3_birthweight_lb1.comb)
+data.preg$i3_birthweight_lb1.comb <- gsub("/NA","",data.preg$i3_birthweight_lb1.comb)
+data.preg$i3_birthweight_lb1.comb <- gsub("NA/","",data.preg$i3_birthweight_lb1.comb)
+data.preg$i3_birthweight_lb1.comb <- gsub("NA","",data.preg$i3_birthweight_lb1.comb)
+describeFactors(data.preg$i3_birthweight_lb1.comb)
+
+
+data.preg$i3_birthweight_g1.comb <- paste0(data.preg$i3_birthweight_g1_BL, data.preg$i3_birthweight_g1_2mo, data.preg$i3_birthweight_g1_4mo, data.preg$i3_birthweight_g1_6mo, data.preg$i3_birthweight_g1_8mo, data.preg$i3_birthweight_g1_10mo, data.preg$i3_birthweight_g1_14mo, sep="/")
+
+
+describeFactors(data.preg$i3_birthweight_g1.comb)
+data.preg$i3_birthweight_g1.comb <- gsub("/NA","",data.preg$i3_birthweight_g1.comb)
+data.preg$i3_birthweight_g1.comb <- gsub("NA/","",data.preg$i3_birthweight_g1.comb)
+data.preg$i3_birthweight_g1.comb <- gsub("NA","",data.preg$i3_birthweight_g1.comb)
+data.preg$i3_birthweight_g1.comb <- gsub("/","",data.preg$i3_birthweight_g1.comb)
+describeFactors(data.preg$i3_birthweight_g1.comb)
+
+data.preg$i3_birthweight_lb1.comb2 <- data.preg$i3_birthweight_lb1.comb
+data.preg$i3_birthweight_g1.comb2 <- data.preg$i3_birthweight_g1.comb
+data.preg$record_id[data.preg$i3_birthweight_g1.comb2 == "70"] #932
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_g1.comb2 == "70"] <- "7+0"
+data.preg$i3_birthweight_g1.comb2[data.preg$i3_birthweight_lb1.comb2 == "7+0" & data.preg$i3_birthweight_g1.comb2 == "70"] <- NA
+data.preg$record_id[data.preg$i3_birthweight_lb1.comb2 == "3600"]  #179
+data.preg$i3_birthweight_g1.comb2[data.preg$i3_birthweight_lb1.comb2 == "3600"] <- "3600"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "3600" & data.preg$i3_birthweight_g1.comb2 == "3600"] <- NA
+data.preg$record_id[data.preg$i3_birthweight_lb1.comb2 == "8kb+139z"] #1340
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "8kb+139z"] <- "8 lbs 13"
+data.preg$record_id[data.preg$i3_birthweight_lb1.comb2 == "8.e"]  #2914
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "8.e"] <- "8"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "612"] <- "6 + 12"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "707"] <- "7 + 7"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "710"] <- "7 + 10"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "714"] <- "7 + 14"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "73"] <- "7 + 3"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "76"] <- "7 + 6"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "81"] <- "8 + 1"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "87"] <- "8 + 7"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "99"] <- "9 + 9"
+data.preg$i3_birthweight_lb1.comb2[data.preg$i3_birthweight_lb1.comb2 == "99"] <- "9 + 9"
+
+data.preg$i3_birthweight_lb1.comb2 <- gsub("lbs,","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("lbs  ","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("lbs","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("lds","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("lba","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("lb.","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("lb","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("Lbs","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("Lb","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("ibs","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("and","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("pounds","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("pound","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("plus","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("bs, ","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("&","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("'","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("\"","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub(",","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("-","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub(":","+",data.preg$i3_birthweight_lb1.comb2)
+
+data.preg$i3_birthweight_lb1.comb2 <- gsub("ozs","",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("oz","",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("ox","",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("iz","",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("ounces","",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("ounced","",data.preg$i3_birthweight_lb1.comb2)
+
+data.preg$i3_birthweight_lb1.comb2 <- gsub(" \\+","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("\\+ ","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("\\+\\+","+",data.preg$i3_birthweight_lb1.comb2)
+# data.preg$i3_birthweight_lb1.comb2 <- gsub("++","+",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("/","",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- gsub("s","",data.preg$i3_birthweight_lb1.comb2)
+data.preg$i3_birthweight_lb1.comb2 <- sub("\\+$", "", data.preg$i3_birthweight_lb1.comb2)
+
+
+#remove empty spaces at the beginning and end of string
+data.preg$i3_birthweight_lb1.comb2 <- trimws(data.preg$i3_birthweight_lb1.comb2, which = c("both"))  #which = c("right", "left", "both")
+data.preg$i3_birthweight_lb1.comb2 <- gsub(" ","+",data.preg$i3_birthweight_lb1.comb2)
+describeFactors(data.preg$i3_birthweight_lb1.comb2)
+
+#splits a+b into two separate columns a and b
+data.preg$birthweight_lbs_prelim <- sapply(strsplit(as.character(data.preg$i3_birthweight_lb1.comb2),"\\+"), "[", 1)
+data.preg$birthweight_oz1 <- sapply(strsplit(as.character(data.preg$i3_birthweight_lb1.comb2),"\\+"), "[", 2)
+
+#set those to NA where the decimal places are <=16 as we do not know as these are decimal places or oz
+#data.preg$birthweight_lbs_prelim[as.numeric(sapply(strsplit(as.character(data.preg$birthweight_lbs_prelim),"\\."), "[", 2)) > 0 & as.numeric(sapply(strsplit(as.character(data.preg$birthweight_lbs_prelim),"\\."), "[", 2)) <= 16] <- NA
+
+#splits a.b into two separate columns a and b if the decimal places are in (0,16]
+data.preg$birthweight_oz2 <- sapply(data.preg$birthweight_lbs_prelim, function(x) ifelse((as.numeric(sapply(strsplit(as.character(x),"\\."), "[", 2)) > 0 & as.numeric(sapply(strsplit(as.character(x),"\\."), "[", 2)) <= 16) %in% TRUE, sapply(strsplit(as.character(x),"\\."), "[", 2), NA))
+data.preg$birthweight_lbs_prelim <- sapply(data.preg$birthweight_lbs_prelim, function(x) ifelse((as.numeric(sapply(strsplit(as.character(x),"\\."), "[", 2)) > 0 & as.numeric(sapply(strsplit(as.character(x),"\\."), "[", 2)) <= 16) %in% TRUE, sapply(strsplit(as.character(x),"\\."), "[", 1), x))
+
+data.preg$birthweight_oz <- mapply(paste, data.preg$birthweight_oz1, data.preg$birthweight_oz2, sep="/")
+data.preg$birthweight_oz <- gsub("/NA","",data.preg$birthweight_oz)
+data.preg$birthweight_oz <- gsub("NA/","",data.preg$birthweight_oz)
+describeFactors(data.preg$birthweight_oz)
+data.preg$birthweight_oz <- gsub("NA","0",data.preg$birthweight_oz)
+
+## # View(data.preg[c(4169,4110,3755),c("i3_birthweight_lb1.comb","i3_birthweight_lb1.comb2", "birthweight_lbs_prelim","birthweight_oz1", "birthweight_oz2", "birthweight_oz")])
+
+
+describeFactors(data.preg$birthweight_oz)
+data.preg$birthweight_lbs <- as.numeric(data.preg$birthweight_lbs_prelim) + as.numeric(data.preg$birthweight_oz)/16
+
+#1 pound (lb) is equal to 453.59237 grams (g)
+data.preg$birthweight_lbs_to_g <- round(data.preg$birthweight_lbs * 453.59237)
+describeFactors(data.preg$birthweight_lbs_to_g)
+
+#birthweight_interpretation <- data.preg[,c("i3_birthweight_lb1.comb", "birthweight_lbs_prelim", "birthweight_oz", "birthweight_lbs", "birthweight_lbs_to_g")]
+#birthweight_interpretation <- birthweight_interpretation[order(birthweight_interpretation$birthweight_lbs_to_g),]
+#library("xtable")
+#print(xtable(birthweight_interpretation), type = "html", file="Checkdata.pregRealistic/birthweight_interpretation.html")
+#write.csv(birthweight_interpretation,'Checkdata.pregRealistic/birthweight_interpretation.csv')
+
+
+describeFactors(data.preg$i3_birthweight_g1.comb2)
+data.preg$i3_birthweight_g1.comb2 <- gsub("KG","",data.preg$i3_birthweight_g1.comb2)
+data.preg$i3_birthweight_g1.comb2 <- gsub("kg","",data.preg$i3_birthweight_g1.comb2)
+
+## # View(data.preg[data.preg$i3_birthweight_g1.comb2 == "418"|data.preg$i3_birthweight_g1.comb2 == "107-"|data.preg$i3_birthweight_g1.comb2 == "330"|data.preg$i3_birthweight_g1.comb2 == "313"|data.preg$i3_birthweight_g1.comb2 == "270"|  data.preg$i3_birthweight_g1.comb2 == "610" | data.preg$i3_birthweight_g1.comb2 == "750" | data.preg$i3_birthweight_g1.comb2 == "830", c("i3_birthweight_g1.comb2", "i1_dob1.comb", "bl1a_delive_2mo_date", "p3i_preterm.comb", "p3ii_ba_2modob.comb","p1_situation.comb")])
+
+data.preg$record_id[data.preg$i3_birthweight_g1.comb2 == "107-"]  #5433
+data.preg$i3_birthweight_g1.comb2[data.preg$i3_birthweight_g1.comb2 == "107-"] <- "1070"  #preterm, baby still in hospital
+data.preg$record_id[data.preg$i3_birthweight_g1.comb2 == "330"] #5134
+data.preg$i3_birthweight_g1.comb2[data.preg$i3_birthweight_g1.comb2 == "330"] <- NA #"3300"  #no preterm, baby lives at home with mother
+data.preg$record_id[data.preg$i3_birthweight_g1.comb2 == "313"] #1269
+data.preg$i3_birthweight_g1.comb2[data.preg$i3_birthweight_g1.comb2 == "313"] <- NA #"3130"  #no preterm, baby lives at home with mother
+data.preg$record_id[data.preg$i3_birthweight_g1.comb2 == "270"]  #2502
+data.preg$i3_birthweight_g1.comb2[data.preg$i3_birthweight_g1.comb2 == "270"] <- NA #"2700"  #no preterm, baby lives at home with mother
+data.preg$record_id[data.preg$i3_birthweight_g1.comb2 == "418"]   #3010
+data.preg$i3_birthweight_g1.comb2[data.preg$i3_birthweight_g1.comb2 == "418"] <- NA #probably "4180"  #no preterm, baby lives at home with mother
+data.preg$i3_birthweight_g1.comb2[data.preg$i3_birthweight_g1.comb2 == "4,654"] <- 4654 
+
+#if it is a decimal number (modulo 1 unequal 0), multiply by 1000 
+data.preg$i3_birthweight_g1.comb22 <- gsub("\\,","\\.",data.preg$i3_birthweight_g1.comb2)
+data.preg$i3_birthweight_g1.comb22 <- sapply(as.numeric(data.preg$i3_birthweight_g1.comb2),function(x) ifelse(x%%1,x*1000,x))
+
+data.preg$birthweight_in_g <- mapply(paste, data.preg$i3_birthweight_g1.comb22, data.preg$birthweight_lbs_to_g, sep="/")
+
+
+describeFactors(data.preg$birthweight_in_g)
+data.preg$birthweight_in_g <- gsub("/NA","",data.preg$birthweight_in_g)
+data.preg$birthweight_in_g <- gsub("NA/","",data.preg$birthweight_in_g)
+describeFactors(data.preg$birthweight_in_g)
+data.preg$birthweight_in_g____1 <- as.numeric(data.preg$birthweight_in_g)
+data.preg$birthweight_in_g____1[which(data.preg$birthweight_in_g____1 == 37648)] <- 3764
+
+summary(data.preg$birthweight_in_g____1)
+data.preg$birthweight_in_g____1 <- replace(data.preg$birthweight_in_g____1, which(data.preg$birthweight_in_g____1 > 5000), NA)
+
+#### birth weight baby 2 ######
+data.preg$i3_birthweight_lb2.comb <- paste0(data.preg$i3_birthweight_lb2_BL, data.preg$i3_birthweight_lb2_2mo, data.preg$i3_birthweight_lb2_4mo, data.preg$i3_birthweight_lb2_6mo, data.preg$i3_birthweight_lb2_8mo, data.preg$i3_birthweight_lb2_10mo, data.preg$i3_birthweight_lb2_14mo, sep="/")
+
+
+describeFactors(data.preg$i3_birthweight_lb2.comb)
+data.preg$i3_birthweight_lb2.comb <- gsub("/NA","",data.preg$i3_birthweight_lb2.comb)
+data.preg$i3_birthweight_lb2.comb <- gsub("NA/","",data.preg$i3_birthweight_lb2.comb)
+data.preg$i3_birthweight_lb2.comb <- gsub("/","",data.preg$i3_birthweight_lb2.comb)
+data.preg$i3_birthweight_lb2.comb <- gsub("NA","",data.preg$i3_birthweight_lb2.comb)
+describeFactors(data.preg$i3_birthweight_lb2.comb)
+
+
+data.preg$i3_birthweight_g2.comb <- paste0(data.preg$i3_birthweight_g2_BL, data.preg$i3_birthweight_g2_2mo, data.preg$i3_birthweight_g2_4mo, data.preg$i3_birthweight_g2_6mo, data.preg$i3_birthweight_g2_8mo, data.preg$i3_birthweight_g2_10mo, data.preg$i3_birthweight_g2_14mo, sep="/")
+
+describeFactors(data.preg$i3_birthweight_g2.comb)
+data.preg$i3_birthweight_g2.comb <- gsub("/NA","",data.preg$i3_birthweight_g2.comb)
+data.preg$i3_birthweight_g2.comb <- gsub("NA/","",data.preg$i3_birthweight_g2.comb)
+data.preg$i3_birthweight_g2.comb <- gsub("NA","",data.preg$i3_birthweight_g2.comb)
+data.preg$i3_birthweight_g2.comb <- gsub("/","",data.preg$i3_birthweight_g2.comb)
+describeFactors(data.preg$i3_birthweight_g2.comb)
+
+data.preg$i3_birthweight_lb2.comb2 <- data.preg$i3_birthweight_lb2.comb
+data.preg$i3_birthweight_g2.comb2 <- data.preg$i3_birthweight_g2.comb
+
+data.preg$i3_birthweight_lb2.comb2 <- gsub("lbs,","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("lbs","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("lb","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("Lbs","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("Lb","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("and","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("pounds","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("pound","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("plus","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("&","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("'","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("\"","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub(",","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("-","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub(":","+",data.preg$i3_birthweight_lb2.comb2)
+
+data.preg$i3_birthweight_lb2.comb2 <- gsub("ozs","",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("oz","",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("ounces","",data.preg$i3_birthweight_lb2.comb2)
+
+data.preg$i3_birthweight_lb2.comb2 <- gsub(" \\+","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("\\+ ","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- gsub("\\+\\+","+",data.preg$i3_birthweight_lb2.comb2)
+data.preg$i3_birthweight_lb2.comb2 <- sub("\\+$", "", data.preg$i3_birthweight_lb2.comb2)
+
+#remove empty spaces at the beginning and end of string
+data.preg$i3_birthweight_lb2.comb2 <- trimws(data.preg$i3_birthweight_lb2.comb2, which = c("both"))  #which = c("right", "left", "both")
+data.preg$i3_birthweight_lb2.comb2 <- gsub(" ","+",data.preg$i3_birthweight_lb2.comb2)
+describeFactors(data.preg$i3_birthweight_lb2.comb2)
+
+#splits a+b into two separate columns a and b
+data.preg$birthweight2_lbs_prelim <- sapply(strsplit(as.character(data.preg$i3_birthweight_lb2.comb2),"\\+"), "[", 1)
+data.preg$birthweight2_oz1 <- sapply(strsplit(as.character(data.preg$i3_birthweight_lb2.comb2),"\\+"), "[", 2)
+
+#splits a.b into two separate columns a and b if the decimal places are in (0,16]
+data.preg$birthweight2_oz2 <- sapply(data.preg$birthweight2_lbs_prelim, function(x) ifelse((as.numeric(sapply(strsplit(as.character(x),"\\."), "[", 2)) > 0 & as.numeric(sapply(strsplit(as.character(x),"\\."), "[", 2)) <= 16) %in% TRUE, sapply(strsplit(as.character(x),"\\."), "[", 2), NA))
+data.preg$birthweight2_lbs_prelim <- sapply(data.preg$birthweight2_lbs_prelim, function(x) ifelse((as.numeric(sapply(strsplit(as.character(x),"\\."), "[", 2)) > 0 & as.numeric(sapply(strsplit(as.character(x),"\\."), "[", 2)) <= 16) %in% TRUE, sapply(strsplit(as.character(x),"\\."), "[", 1), x))
+
+data.preg$birthweight2_oz <- mapply(paste, data.preg$birthweight2_oz1, data.preg$birthweight2_oz2, sep="/")
+data.preg$birthweight2_oz <- gsub("/NA","",data.preg$birthweight2_oz)
+data.preg$birthweight2_oz <- gsub("NA/","",data.preg$birthweight2_oz)
+describeFactors(data.preg$birthweight2_oz)
+
+## # View(data.preg[,c("i3_birthweight2_lb1.comb","i3_birthweight2_lb1.comb2", "birthweight2_lbs_prelim","birthweight2_oz1", "birthweight2_oz2", "birthweight2_oz")])
+
+data.preg$birthweight2_oz <- gsub("NA","0",data.preg$birthweight2_oz)
+data.preg$birthweight2_lbs <- as.numeric(data.preg$birthweight2_lbs_prelim) + as.numeric(data.preg$birthweight2_oz)/16
+
+#1 pound (lb) is equal to 453.59237 grams (g)
+data.preg$birthweight2_lbs_to_g <- round(data.preg$birthweight2_lbs * 453.59237)
+describeFactors(data.preg$birthweight2_lbs_to_g)
+
+birthweight2_interpretation <- data.preg[,c("i3_birthweight_lb2.comb", "birthweight2_lbs_prelim", "birthweight2_oz", "birthweight2_lbs", "birthweight2_lbs_to_g")]
+#library("xtable")
+#print(xtable(birthweight2_interpretation), type = "html", file="Checkdata.pregRealistic/birthweight2_interpretation.html")
+#write.csv(birthweight2_interpretation,'Checkdata.pregRealistic/birthweight2_interpretation.csv')
+
+
+describeFactors(data.preg$i3_birthweight_g2.comb2)
+
+#if it is a decimal number (modulo 1 unequal 0), multiply by 1000 
+data.preg$i3_birthweight_g2.comb22 <- gsub(",",".",data.preg$i3_birthweight_g2.comb2)
+data.preg$i3_birthweight_g2.comb22 <- sapply(as.numeric(data.preg$i3_birthweight_g2.comb2),function(x) ifelse(x%%1,x*1000,x))
+describeFactors(data.preg$i3_birthweight_g2.comb22)
+data.preg$birthweight2_in_g <- mapply(paste, data.preg$i3_birthweight_g2.comb22, data.preg$birthweight2_lbs_to_g, sep="/")
+
+
+describeFactors(data.preg$birthweight2_in_g)
+data.preg$birthweight2_in_g <- gsub("/NA","",data.preg$birthweight2_in_g)
+data.preg$birthweight2_in_g <- gsub("NA/","",data.preg$birthweight2_in_g)
+describeFactors(data.preg$birthweight2_in_g)
+data.preg$birthweight_in_g____2 <- as.numeric(data.preg$birthweight2_in_g)
+# summary(data.preg$birthweight_in_g____2)
+
+
+#### birth weight baby 3 ####
+data.preg$i3_birthweight_g3_BL  #1
+data.preg$birthweight_in_g____3 <- as.numeric(data.preg$i3_birthweight_g3_BL)
+
+
+
+
+
+
+#### any health event ####
+data.preg$healthevents_any1 <- paste(data.preg$i5_events1_BL, data.preg$i5_events1_2mo,
+                               data.preg$i5_events1_4mo, data.preg$i5_events1_6mo,
+                               data.preg$i5_events1_8mo, data.preg$i5_events1_10mo,
+                               data.preg$i5_events1_14mo,  sep = "_")
+
+data.preg$healthevents_any1 <- gsub("NA_", "", data.preg$healthevents_any1)
+data.preg$healthevents_any1 <- gsub("0_0", 0, data.preg$healthevents_any1)
+data.preg$healthevents_any1 <- gsub("0_NA", 0, data.preg$healthevents_any1)
+data.preg$healthevents_any1 <- gsub("1_NA", 1, data.preg$healthevents_any1)
+data.preg$healthevents_any1 <- gsub("999_NA", NA_character_, data.preg$healthevents_any1)
+data.preg$healthevents_any1 <- gsub("NA", NA_character_, data.preg$healthevents_any1)
+describeFactors(data.preg$healthevents_any1)
+
+data.preg$healthevents_any2 <- paste(data.preg$i5_events2_BL, data.preg$i5_events2_2mo,
+                               data.preg$i5_events2_4mo, data.preg$i5_events2_6mo,
+                               data.preg$i5_events2_8mo, data.preg$i5_events2_10mo,
+                               data.preg$i5_events2_14mo,  sep = "_")
+
+data.preg$healthevents_any2 <- gsub("NA_", "", data.preg$healthevents_any2)
+data.preg$healthevents_any2 <- gsub("_", "", data.preg$healthevents_any2)
+# data.preg$healthevents_any <- gsub(, NA_character_, data.preg$healthevents_any)
+describeFactors(data.preg$healthevents_any2)
+
+data.preg$healthevents_any3 <- paste(data.preg$i5_events3_BL, data.preg$i5_events3_2mo,
+                               data.preg$i5_events3_4mo, data.preg$i5_events3_6mo,
+                               data.preg$i5_events3_8mo, data.preg$i5_events3_10mo,
+                               data.preg$i5_events3_14mo,  sep = "_")
+
+data.preg$healthevents_any3 <- gsub("NA_", "", data.preg$healthevents_any3)
+data.preg$healthevents_any3 <- gsub("_", "", data.preg$healthevents_any3)
+# data.preg$healthevents_any <- gsub(, NA_character_, data.preg$healthevents_any)
+describeFactors(data.preg$healthevents_any3)
+
+
+#### jaundice ####
+data.preg$jaundice_any1 <- paste(data.preg$i5_events_jaundice1_BL, data.preg$i5_events_jaundice1_2mo,
+                               data.preg$i5_events_jaundice1_4mo, data.preg$i5_events_jaundice1_6mo,
+                               data.preg$i5_events_jaundice1_8mo, data.preg$i5_events_jaundice1_10mo,
+                               data.preg$i5_events_jaundice1_14mo,  sep = "_")
+
+data.preg$jaundice_any1 <- gsub("NA_", "", data.preg$jaundice_any1)
+data.preg$jaundice_any1 <- gsub("0_0", 0, data.preg$jaundice_any1)
+data.preg$jaundice_any1 <- gsub("0_NA", 0, data.preg$jaundice_any1)
+data.preg$jaundice_any1 <- gsub("1_NA", 1, data.preg$jaundice_any1)
+data.preg$jaundice_any1 <- gsub("999_NA", NA_character_, data.preg$jaundice_any1)
+data.preg$jaundice_any1 <- gsub("NA", NA_character_, data.preg$jaundice_any1)
+describeFactors(data.preg$jaundice_any1)
+
+data.preg$jaundice_any2 <- paste(data.preg$i5_events_jaundice2_BL, data.preg$i5_events_jaundice2_2mo,
+                               data.preg$i5_events_jaundice2_4mo, data.preg$i5_events_jaundice2_6mo,
+                               data.preg$i5_events_jaundice2_8mo, data.preg$i5_events_jaundice2_10mo,
+                               data.preg$i5_events_jaundice2_14mo,  sep = "_")
+
+data.preg$jaundice_any2 <- gsub("NA_", "", data.preg$jaundice_any2)
+data.preg$jaundice_any2 <- gsub("_", "", data.preg$jaundice_any2)
+# data.preg$jaundice_any <- gsub(, NA_character_, data.preg$jaundice_any)
+describeFactors(data.preg$jaundice_any2)
+
+data.preg$jaundice_any3 <- paste(data.preg$i5_events_jaundice3_BL, data.preg$i5_events_jaundice3_2mo,
+                               data.preg$i5_events_jaundice3_4mo, data.preg$i5_events_jaundice3_6mo,
+                               data.preg$i5_events_jaundice3_8mo, data.preg$i5_events_jaundice3_10mo,
+                               data.preg$i5_events_jaundice3_14mo,  sep = "_")
+
+data.preg$jaundice_any3 <- gsub("NA_", "", data.preg$jaundice_any3)
+data.preg$jaundice_any3 <- gsub("_", "", data.preg$jaundice_any3)
+# data.preg$jaundice_any <- gsub(, NA_character_, data.preg$jaundice_any)
+describeFactors(data.preg$jaundice_any3)
+
+
+#### seizures ####
+data.preg$seizures_any1 <- paste(data.preg$i5_events_seizures1_BL, data.preg$i5_events_seizures1_2mo,
+                               data.preg$i5_events_seizures1_4mo, data.preg$i5_events_seizures1_6mo,
+                               data.preg$i5_events_seizures1_8mo, data.preg$i5_events_seizures1_10mo,
+                               data.preg$i5_events_seizures1_14mo,  sep = "_")
+
+data.preg$seizures_any1 <- gsub("NA_", "", data.preg$seizures_any1)
+data.preg$seizures_any1 <- gsub("0_0", 0, data.preg$seizures_any1)
+data.preg$seizures_any1 <- gsub("0_NA", 0, data.preg$seizures_any1)
+data.preg$seizures_any1 <- gsub("1_NA", 1, data.preg$seizures_any1)
+data.preg$seizures_any1 <- gsub("999_NA", NA_character_, data.preg$seizures_any1)
+data.preg$seizures_any1 <- gsub("NA", NA_character_, data.preg$seizures_any1)
+describeFactors(data.preg$seizures_any1)
+
+data.preg$seizures_any2 <- paste(data.preg$i5_events_seizures2_BL, data.preg$i5_events_seizures2_2mo,
+                               data.preg$i5_events_seizures2_4mo, data.preg$i5_events_seizures2_6mo,
+                               data.preg$i5_events_seizures2_8mo, data.preg$i5_events_seizures2_10mo,
+                               data.preg$i5_events_seizures2_14mo,  sep = "_")
+
+data.preg$seizures_any2 <- gsub("NA_", "", data.preg$seizures_any2)
+data.preg$seizures_any2 <- gsub("_", "", data.preg$seizures_any2)
+# data.preg$seizures_any <- gsub(, NA_character_, data.preg$seizures_any)
+describeFactors(data.preg$seizures_any2)
+
+data.preg$seizures_any3 <- paste(data.preg$i5_events_seizures3_BL, data.preg$i5_events_seizures3_2mo,
+                               data.preg$i5_events_seizures3_4mo, data.preg$i5_events_seizures3_6mo,
+                               data.preg$i5_events_seizures3_8mo, data.preg$i5_events_seizures3_10mo,
+                               data.preg$i5_events_seizures3_14mo,  sep = "_")
+
+data.preg$seizures_any3 <- gsub("NA_", "", data.preg$seizures_any3)
+data.preg$seizures_any3 <- gsub("_", "", data.preg$seizures_any3)
+# data.preg$seizures_any <- gsub(, NA_character_, data.preg$seizures_any)
+describeFactors(data.preg$seizures_any3)
+
+
+#### hypogly ####
+data.preg$hypogly_any1 <- paste(data.preg$i5_events_hypogly1_BL, data.preg$i5_events_hypogly1_2mo,
+                               data.preg$i5_events_hypogly1_4mo, data.preg$i5_events_hypogly1_6mo,
+                               data.preg$i5_events_hypogly1_8mo, data.preg$i5_events_hypogly1_10mo,
+                               data.preg$i5_events_hypogly1_14mo,  sep = "_")
+
+data.preg$hypogly_any1 <- gsub("NA_", "", data.preg$hypogly_any1)
+data.preg$hypogly_any1 <- gsub("0_0", 0, data.preg$hypogly_any1)
+data.preg$hypogly_any1 <- gsub("0_NA", 0, data.preg$hypogly_any1)
+data.preg$hypogly_any1 <- gsub("1_NA", 1, data.preg$hypogly_any1)
+data.preg$hypogly_any1 <- gsub("999_NA", NA_character_, data.preg$hypogly_any1)
+data.preg$hypogly_any1 <- gsub("NA", NA_character_, data.preg$hypogly_any1)
+describeFactors(data.preg$hypogly_any1)
+
+data.preg$hypogly_any2 <- paste(data.preg$i5_events_hypogly2_BL, data.preg$i5_events_hypogly2_2mo,
+                               data.preg$i5_events_hypogly2_4mo, data.preg$i5_events_hypogly2_6mo,
+                               data.preg$i5_events_hypogly2_8mo, data.preg$i5_events_hypogly2_10mo,
+                               data.preg$i5_events_hypogly2_14mo,  sep = "_")
+
+data.preg$hypogly_any2 <- gsub("NA_", "", data.preg$hypogly_any2)
+data.preg$hypogly_any2 <- gsub("_", "", data.preg$hypogly_any2)
+# data.preg$hypogly_any <- gsub(, NA_character_, data.preg$hypogly_any)
+describeFactors(data.preg$hypogly_any2)
+
+data.preg$hypogly_any3 <- paste(data.preg$i5_events_hypogly3_BL, data.preg$i5_events_hypogly3_2mo,
+                               data.preg$i5_events_hypogly3_4mo, data.preg$i5_events_hypogly3_6mo,
+                               data.preg$i5_events_hypogly3_8mo, data.preg$i5_events_hypogly3_10mo,
+                               data.preg$i5_events_hypogly3_14mo,  sep = "_")
+
+data.preg$hypogly_any3 <- gsub("NA_", "", data.preg$hypogly_any3)
+data.preg$hypogly_any3 <- gsub("_", "", data.preg$hypogly_any3)
+# data.preg$hypogly_any <- gsub(, NA_character_, data.preg$hypogly_any)
+describeFactors(data.preg$hypogly_any3)
+
+
+#### fever ####
+data.preg$fever_any1 <- paste(data.preg$i5_events_fever1_BL, data.preg$i5_events_fever1_2mo,
+                               data.preg$i5_events_fever1_4mo, data.preg$i5_events_fever1_6mo,
+                               data.preg$i5_events_fever1_8mo, data.preg$i5_events_fever1_10mo,
+                               data.preg$i5_events_fever1_14mo,  sep = "_")
+
+data.preg$fever_any1 <- gsub("NA_", "", data.preg$fever_any1)
+data.preg$fever_any1 <- gsub("0_0", 0, data.preg$fever_any1)
+data.preg$fever_any1 <- gsub("0_NA", 0, data.preg$fever_any1)
+data.preg$fever_any1 <- gsub("1_NA", 1, data.preg$fever_any1)
+data.preg$fever_any1 <- gsub("999_NA", NA_character_, data.preg$fever_any1)
+data.preg$fever_any1 <- gsub("NA", NA_character_, data.preg$fever_any1)
+describeFactors(data.preg$fever_any1)
+
+data.preg$fever_any2 <- paste(data.preg$i5_events_fever2_BL, data.preg$i5_events_fever2_2mo,
+                               data.preg$i5_events_fever2_4mo, data.preg$i5_events_fever2_6mo,
+                               data.preg$i5_events_fever2_8mo, data.preg$i5_events_fever2_10mo,
+                               data.preg$i5_events_fever2_14mo,  sep = "_")
+
+data.preg$fever_any2 <- gsub("NA_", "", data.preg$fever_any2)
+data.preg$fever_any2 <- gsub("_", "", data.preg$fever_any2)
+# data.preg$fever_any <- gsub(, NA_character_, data.preg$fever_any)
+describeFactors(data.preg$fever_any2)
+
+data.preg$fever_any3 <- paste(data.preg$i5_events_fever3_BL, data.preg$i5_events_fever3_2mo,
+                               data.preg$i5_events_fever3_4mo, data.preg$i5_events_fever3_6mo,
+                               data.preg$i5_events_fever3_8mo, data.preg$i5_events_fever3_10mo,
+                               data.preg$i5_events_fever3_14mo,  sep = "_")
+
+data.preg$fever_any3 <- gsub("NA_", "", data.preg$fever_any3)
+data.preg$fever_any3 <- gsub("_", "", data.preg$fever_any3)
+# data.preg$fever_any <- gsub(, NA_character_, data.preg$fever_any)
+describeFactors(data.preg$fever_any3)
+
+
+#### vent ####
+data.preg$vent_any1 <- paste(data.preg$i5_events_vent1_BL, data.preg$i5_events_vent1_2mo,
+                               data.preg$i5_events_vent1_4mo, data.preg$i5_events_vent1_6mo,
+                               data.preg$i5_events_vent1_8mo, data.preg$i5_events_vent1_10mo,
+                               data.preg$i5_events_vent1_14mo,  sep = "_")
+
+data.preg$vent_any1 <- gsub("NA_", "", data.preg$vent_any1)
+data.preg$vent_any1 <- gsub("0_0", 0, data.preg$vent_any1)
+data.preg$vent_any1 <- gsub("0_NA", 0, data.preg$vent_any1)
+data.preg$vent_any1 <- gsub("1_NA", 1, data.preg$vent_any1)
+data.preg$vent_any1 <- gsub("999_NA", NA_character_, data.preg$vent_any1)
+data.preg$vent_any1 <- gsub("NA", NA_character_, data.preg$vent_any1)
+describeFactors(data.preg$vent_any1)
+
+data.preg$vent_any2 <- paste(data.preg$i5_events_vent2_BL, data.preg$i5_events_vent2_2mo,
+                               data.preg$i5_events_vent2_4mo, data.preg$i5_events_vent2_6mo,
+                               data.preg$i5_events_vent2_8mo, data.preg$i5_events_vent2_10mo,
+                               data.preg$i5_events_vent2_14mo,  sep = "_")
+
+data.preg$vent_any2 <- gsub("NA_", "", data.preg$vent_any2)
+data.preg$vent_any2 <- gsub("_", "", data.preg$vent_any2)
+# data.preg$vent_any <- gsub(, NA_character_, data.preg$vent_any)
+describeFactors(data.preg$vent_any2)
+
+data.preg$vent_any3 <- paste(data.preg$i5_events_vent3_BL, data.preg$i5_events_vent3_2mo,
+                               data.preg$i5_events_vent3_4mo, data.preg$i5_events_vent3_6mo,
+                               data.preg$i5_events_vent3_8mo, data.preg$i5_events_vent3_10mo,
+                               data.preg$i5_events_vent3_14mo,  sep = "_")
+
+data.preg$vent_any3 <- gsub("NA_", "", data.preg$vent_any3)
+data.preg$vent_any3 <- gsub("_", "", data.preg$vent_any3)
+# data.preg$vent_any <- gsub(, NA_character_, data.preg$vent_any)
+describeFactors(data.preg$vent_any3)
+
+
+
+
+## reshape ####
+data.baby <- data.preg[, c("record_id_BL", "healthevents_any1", "healthevents_any2", "healthevents_any3", "birthweight_in_g____1", "birthweight_in_g____2", "birthweight_in_g____3", "jaundice_any1", "jaundice_any2", "jaundice_any3", "seizures_any1", "seizures_any2", "seizures_any3", "NICU_any1", "NICU_any2", "NICU_any3", "hypogly_any1", "hypogly_any2", "hypogly_any3", "fever_any1", "fever_any2", "fever_any3", "vent_any1", "vent_any2", "vent_any3", "vacc_in_preg",  "all_preterm", "baby1_nicu_los", "baby2_nicu_los", "baby3_nicu_los")]
+
+data.long <- reshape(data.baby, varying = list(
+  events = c("healthevents_any1", "healthevents_any2", "healthevents_any3"),
+  bweight = c("birthweight_in_g____1", "birthweight_in_g____2", "birthweight_in_g____3"),
+  jaund = c("jaundice_any1", "jaundice_any2", "jaundice_any3"),
+  seizure = c("seizures_any1", "seizures_any2", "seizures_any3"),
+  hypogly = c("hypogly_any1", "hypogly_any2", "hypogly_any3"),
+  fever_abx = c("fever_any1", "fever_any2", "fever_any3"),
+  vent = c("vent_any1", "vent_any2", "vent_any3"),
+  nicu = c("NICU_any1", "NICU_any2", "NICU_any3"),
+  nicu_los = c("baby1_nicu_los", "baby2_nicu_los", "baby3_nicu_los")), v.names = c("events", "bweight", "jaund", "seizure", "hypogly", "fever_abx", "vent", "nicu", "nicu_los"),  idvar = "record_id", times = c(1, 2, 3), direction = "long")
+
+data.long$nicu[which(data.long$nicu == "NA")] <- NA
+data.long$nicu[which(data.long$nicu == "")] <- NA
+data.long <- data.long[-which(is.na(data.long$nicu)), ]
+
+data.long <- data.long %>%
+  mutate(across(c(7:11, 13), ~ifelse(is.na(.x), "No", as.character(.x))))
+
+data.long <- data.long %>%
+  mutate(across(c(7:11, 13), ~ifelse(.x == "No", "0", as.character(.x)))) %>% 
+  mutate(across(c(7:11, 13), ~ifelse(.x == "", NA_character_, as.character(.x))))
+
+describeFactors(data.long$jaund)
+
+
+```
+
+
+
+```{r baby table}
+data.long$vacc_in_preg <- factor(data.long$vacc_in_preg)
+data.long$bweight_low <- data.long$bweight < 2500
+describeFactors(data.long$bweight_low)
+
+getT1Stat <- function(varname, digits=0, useNA = "no"){
+  getDescriptionStatsBy(data.long[, varname], 
+                        data.long$vacc_in_preg, 
+                        add_total_col=TRUE,
+                        show_all_values=TRUE, 
+                        hrzl_prop=FALSE,
+                        statistics= TRUE, 
+                        html=TRUE, 
+                        useNA = useNA,
+                        digits=digits,
+                        header_count = TRUE)
+}
+
+getT1Stat.median <- function(varname, digits=0, useNA = "no"){
+  getDescriptionStatsBy(data.long[, varname], 
+                        data.long$vacc_in_preg, 
+                        add_total_col=TRUE,
+                        show_all_values=TRUE, 
+                        hrzl_prop=FALSE,
+                        statistics=TRUE, 
+                        html=TRUE, 
+                        useNA = useNA,
+                        digits=digits,
+                        header_count = TRUE,
+                        continuous_fn = describeMedian)
+}
+
+data.long <- as.data.frame(data.long)
+
+table_data <- list()
+
+table_data[["Any NICU"]] <- getT1Stat("nicu", 1)
+table_data[["NICU admission at least 24 hours"]] <- getT1Stat("nicu_los", 2)
+table_data[["Preterm"]] <- getT1Stat("all_preterm", 2)
+table_data[["Birth weight (g)"]] <- getT1Stat("bweight", 1)
+table_data[["Birth weight low"]] <- getT1Stat("bweight_low", 1)
+table_data[["Any health events"]] <- getT1Stat.median("events", 1)
+table_data[["Jaundice"]] <- getT1Stat("jaund", 1)
+table_data[["Seizure"]] <- getT1Stat("seizure", 2)
+table_data[["Hypoglycemia"]] <- getT1Stat("hypogly", 1) 
+table_data[["Fever or antibiotics"]] <- getT1Stat("fever_abx", 1)
+table_data[["Needed ventilation"]] <- getT1Stat("vent", 1)
+
+
+# Now merge everything into a matrix
+# and create the rgroup & n.rgroup variabels
+rgroup <- c()
+n.rgroup <- c()
+output_data <- NULL
+for (varlabel in names(table_data)) {
+  output_data <- rbind(output_data, table_data[[varlabel]])
+  rgroup <- c(rgroup,
+              varlabel)
+  n.rgroup <- c(n.rgroup,
+                nrow(table_data[[varlabel]]))
+}
+
+# Add a column spanner for the columns
+cgroup <- c("", "Dose timing")
+n.cgroup <- c(1, 3)
+colnames(output_data) <- gsub("[ ]*Dose timing", "", colnames(output_data))
+
+htmlTable::htmlTable(output_data, align = "rrrr",
+          rgroup = rgroup, n.rgroup = n.rgroup,
+          css.rgroup.sep = "",
+          cgroup = cgroup,
+          n.cgroup = n.cgroup,
+          rowlabel = "",
+          caption = "Table 1. Demographic and clinical history # summary",
+          ctable = TRUE)  %>% htmltools::html_print()
+
+
+```
+
+
+
+```{r diagnoses}
+# describeFactors(data$do12_diagnosis_BL)
+# describeFactors(data$do12_diagnosis_2mo)
+# 
+# describeFactors(data$do13_diagnosis_2moes)
+# 
+# describeFactors(data$dt12_diagnosis_BL)
+# describeFactors(data$dt12_diagnosis_2mo)
+# 
+# describeFactors(data$dt13_diagnosis_2moes_BL)
+# describeFactors(data$dt13_diagnosis_2moes_2mo)
+
+```
+
+```{r covid infections}
+# describeFactors(data$fu4_covid_pos_BL)
+# describeFactors(data$fu4_covid_pos_2mo)
+# 
+# # are any of these overlapping?
+# getDescriptionStatsBy(factor(data$fu4_covid_pos_2mo), data$fu4_covid_pos_BL)
+# # no
+# 
+# ## severity
+# describeFactors(data$fu5_covid_severi_2mo_BL)
+# describeFactors(data$fu5_covid_severi_2mo_2mo)
+# 
+# 
+# describeFactors(data$regular_followup_complete_BL)
+# describeFactors(data$regular_followup_complete_2mo)
+
+```
+
+```{r follow up time}
+data$demographic_health_pregnancy_survey_timestamp <- as.Date(data$demographic_health_pregnancy_survey_timestamp)
+# data$pregnancy_outcomes_timestamp <- as.Date(data$pregnancy_outcomes_timestamp)
+data$pregnancy_outcomes_timestamp_BL <- as.Date(data$pregnancy_outcomes_timestamp_BL)
+data$pregnancy_outcomes_timestamp_2mo <- as.Date(data$pregnancy_outcomes_timestamp_2mo)
+# data$vaccine_outcomes_dose_one_timestamp <- as.Date(data$vaccine_outcomes_dose_one_timestamp)
+data$vaccine_outcomes_dose_one_timestamp_BL <- as.Date(data$vaccine_outcomes_dose_one_timestamp_BL)
+data$vaccine_outcomes_dose_one_timestamp_2mo <- as.Date(data$vaccine_outcomes_dose_one_timestamp_2mo)
+# data$vaccine_outcomes_dose_two_timestamp <- as.Date(data$vaccine_outcomes_dose_two_timestamp)
+data$vaccine_outcomes_dose_two_timestamp_BL <- as.Date(data$vaccine_outcomes_dose_two_timestamp_BL)
+data$vaccine_outcomes_dose_two_timestamp_2mo <- as.Date(data$vaccine_outcomes_dose_two_timestamp_2mo)
+# data$vaccine_outcomes_booster_dose_timestamp <- as.Date(data$vaccine_outcomes_booster_dose_timestamp)
+data$vaccine_outcomes_booster_dose_timestamp_BL <- as.Date(data$vaccine_outcomes_booster_dose_timestamp_BL)
+data$vaccine_outcomes_booster_dose_timestamp_2mo <- as.Date(data$vaccine_outcomes_booster_dose_timestamp_2mo)
+
+data$bl_po1 <- as.numeric(data$pregnancy_outcomes_timestamp_BL - data$demographic_health_pregnancy_survey_timestamp)
+summary(data$bl_po1) # days
+
+data$bl_po2 <- as.numeric(data$pregnancy_outcomes_timestamp_BL - data$demographic_health_pregnancy_survey_timestamp)
+summary(data$bl_po2) # days
+
+data$bl_po3 <- as.numeric(data$pregnancy_outcomes_timestamp_2mo - data$demographic_health_pregnancy_survey_timestamp)
+summary(data$bl_po3) # days
+
+data$regular_followup_timestamp_4mo <- as.Date(data$regular_followup_timestamp_4mo)
+data$regular_followup_timestamp_2mo <- as.Date(data$regular_followup_timestamp_2mo)
+
+data$bl_fu1 <- as.numeric(data$regular_followup_timestamp_2mo - data$demographic_health_pregnancy_survey_timestamp)
+summary(data$bl_fu1) # 2months
+
+data$bl_fu2 <- as.numeric(data$regular_followup_timestamp_4mo - data$demographic_health_pregnancy_survey_timestamp)
+summary(data$bl_fu2) # 4months
+
+## when did they have their doses?
+# data$do3_date <- as.Date(data$do3_date)
+data$do3_date_BL <- as.Date(data$do3_date_BL)
+data$do3_date_2mo <- as.Date(data$do3_date_2mo)
+
+# data$dt3_date
+data$dt3_date_BL
+data$dt3_date_2mo
+
+## I guess dose 1 is the important one
+
+# data$dose1_fu <- as.numeric(data$regular_followup_timestamp_BL - data$do3_date) # negative
+# summary(data$dose1_fu)
+
+data$dose1_fu_BL <- as.numeric(data$regular_followup_timestamp_BL - data$do3_date_BL) 
+summary(data$dose1_fu_BL)
+
+data$dose1_fu_2mo <- as.numeric(data$regular_followup_timestamp_BL - data$do3_date_2mo) 
+summary(data$dose1_fu_2mo)
+
+
+# data$dose1_fu2 <- as.numeric(data$regular_followup_timestamp_2mo - data$do3_date)
+# summary(data$dose1_fu2)
+
+data$dose1_fu2_BL <- as.numeric(data$regular_followup_timestamp_2mo - data$do3_date_BL) 
+summary(data$dose1_fu2_BL)
+
+data$dose1_fu2_2mo <- as.numeric(data$regular_followup_timestamp_2mo - data$do3_date_2mo) 
+summary(data$dose1_fu2_2mo)
+
+# pick longest one per person
+d1 <- data.frame(record_id = data$record_id, dose1_fu = data$dose1_fu_BL)
+d2 <- data.frame(record_id = data$record_id, dose1_fu = data$dose1_fu_2mo)
+d3 <- data.frame(record_id = data$record_id, dose1_fu = data$dose1_fu2)
+d4 <- data.frame(record_id = data$record_id, dose1_fu = data$dose1_fu2_BL)
+d5 <- data.frame(record_id = data$record_id, dose1_fu = data$dose1_fu2_2mo)
+
+dall <- rbind(d1, d2, d3, d4, d5)
+
+dall <- dall %>% 
+  group_by(record_id) %>% 
+  arrange(dose1_fu) %>% 
+  slice_max(order_by = dose1_fu)
+
+dall$dose1_fu[which(dall$dose1_fu < 0 | dall$dose1_fu > 500)] <- NA
+
+summary(dall$dose1_fu/7)
+
+
+```
+
+
+
+```{r for reviewers}
+
+aaa_review_this <- data.preg %>% group_by(vacc_in_preg) %>% summarise(n = n(), tot_na = sum(is.na(fu1b_pregnant_6mo)), prop_na =sum(is.na(fu1b_pregnant_6mo))/n() )
+
+## proportion
+# data.preg$vacc_in_preg
+data.preg_unvax <- data.preg %>% filter(vacc_in_preg == "no vaccine in pregnancy" )
+data.preg_unvax$dose1_T_2mo
+data.preg_unvax$dose1_T_4mo
+
+
+
+data.preg_unvax$dob_baby <- data.preg_unvax$i1_dob1_BL
+
+data.preg_unvax$dob_baby[is.na(data.preg_unvax$dob_baby)] <- data.preg_unvax$i1_dob2_BL[which(is.na(data.preg_unvax$dob_baby))]
+
+data.preg_unvax$dob_baby[is.na(data.preg_unvax$dob_baby)] <- data.preg_unvax$i1_dob3_BL[which(is.na(data.preg_unvax$dob_baby))]
+
+data.preg_unvax$dob_baby[is.na(data.preg_unvax$dob_baby)] <- data.preg_unvax$i1_dob1_2mo[which(is.na(data.preg_unvax$dob_baby))]
+
+data.preg_unvax$dob_baby[is.na(data.preg_unvax$dob_baby)] <- data.preg_unvax$i1_dob1_4mo[which(is.na(data.preg_unvax$dob_baby))]
+
+data.preg_unvax$dob_baby[is.na(data.preg_unvax$dob_baby)] <- data.preg_unvax$i1_dob1_6mo[which(is.na(data.preg_unvax$dob_baby))]
+
+
+
+
+
+
+
+data.preg_unvax$vax_time_after_delivery <- as.Date(data.preg_unvax$dose_1_date) - as.Date(data.preg_unvax$dob_baby)
+
+
+data.preg_unvax$vax_time_after_delivery[which(data.preg_unvax$vax_time_after_delivery < 0)] <- 1000
+sum(data.preg_unvax$vax_time_after_delivery < 62, na.rm = TRUE)
+dim(data.preg_unvax)
+
+sum(!is.na(data.preg_unvax$vax_time_after_delivery))
+
+
+```
+
+

@@ -1,0 +1,297 @@
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include = FALSE)
+
+library(lme4)
+library(MASS)
+library(multcomp)
+library(Gmisc)
+library(RColorBrewer)
+library(lubridate)
+library(Hmisc)
+library(broman)
+library(dplyr)
+library(ggplot2)
+library(mgcv)
+library(effects)
+library(here)
+library(tidyverse)
+library(margins)
+library(sjPlot)
+library(rcompanion)
+library(ggpubr)
+library(ggeffects)
+library(survey)
+library(knitr)
+library(lmerTest)
+library(emmeans)
+library(quantreg)
+library(zoo)
+library(sjstats)
+library(kableExtra)
+library(geepack)
+library(viridis)
+library(chron)
+library(ghibli)
+library(psych)
+
+
+
+theme_set(
+  theme(text = element_text(size = 14))
+)
+
+```
+
+```{r data}
+data <- read.csv(here("data/2021-12-01_COVERED_DATA.csv"), stringsAsFactors = TRUE, strip.white = TRUE)
+```
+
+```{r inclusion}
+# exclude the non living in Canada
+describeFactors(data$bl16_count.4mo_res)
+
+data <- data[which(data$bl16_count.4mo_res == 1), ]
+
+# remove the ones who did not receive the vaccine intentions module
+data <- data[which(data$rand_vacc_att == 1), ]
+
+data <- droplevels(data)
+
+```
+
+```{r var setup}
+
+data <- data %>% 
+  mutate(
+    likely = case_when(
+      v1_dose1_like.4mo %in% c(1, 2, 3) ~ "No",
+      v1_dose1_like.4mo %in% c(4, 5, 6) ~ "Yes"
+    )
+  )
+
+describeFactors(data$likely)
+
+```
+
+```{r WHO scales}
+# WHO scale
+# new vaccine more risk, concerned about adverse effects 8 and 9 = risks 
+
+data$v16_risks
+data$v17_effects
+
+# get the average scores
+
+data <- data %>% 
+  rowwise() %>% 
+  mutate(VHS_risk = mean(c(v16_risks, v17_effects), na.rm = TRUE))
+
+# summary(data$VHS_risk)
+
+
+
+```
+
+
+```{r TPB}
+# sum to form attitude scale
+# all attitudes anchored in same direction
+# v18 to v28
+
+a.ca <- alpha(data[, c("v18_serious", "v19_serious_preg", "v20_beneficial", "v21_beneficial_preg", "v22_tested", "v23_tested_preg", "v24_safe", "v25_safe_preg", "v26_safe_fetus", "v27_effective", "v28_effective_preg")])
+a.ca
+#  lower alpha upper     95% confidence boundaries
+# 0.88 0.89 0.89  
+
+
+data <- data %>% 
+  rowwise() %>% 
+  mutate(ATT = sum(c(v18_serious, v19_serious_preg, v20_beneficial, v21_beneficial_preg, v22_tested, v23_tested_preg, v24_safe, v25_safe_preg, v26_safe_fetus, v27_effective, v28_effective_preg)))
+# summary(data$ATT)
+
+data.att <- data %>% 
+  ungroup() %>% 
+  summarise(across(c(v18_serious:v28_effective_preg, ATT), list(mean = mean, sd = sd), na.rm = TRUE))
+(data.att2 <- t(data.att))
+
+
+# direct subjective norms
+# v29 to v30
+data$v29_important
+data$v30_socialpressure
+
+snd.ca <- alpha(data[, c("v29_important", "v30_socialpressure")])
+snd.ca
+#  lower alpha upper     95% confidence boundaries
+# -0.04 0.03 0.1
+# these 2 are not agreeing and should be reported separately
+
+data.dsn <- data %>% 
+  ungroup() %>% 
+  summarise(across(c(v29_important:v30_socialpressure), list(mean = mean, sd = sd), na.rm = TRUE))
+
+(data.dsn2 <- t(data.dsn))
+
+
+# perceived behavioural control
+# v39 to v41
+data$v39_easi.4moreceive[which(data$v1_dose1_like.4mo != 6)]
+data$v40_choice[which(data$v1_dose1_like.4mo != 6)]
+data$v41_control[which(data$v1_dose1_like.4mo != 6)]
+
+pbc.ca <- alpha(data[which(data$v1_dose1_like.4mo != 6), c("v39_easi.4moreceive", "v40_choice", "v41_control")])
+pbc.ca
+ # lower alpha upper     95% confidence boundaries
+#0.55 0.6 0.65
+
+data <- data %>% 
+  rowwise() %>% 
+  mutate(PBC = sum(c(v39_easi.4moreceive, v40_choice, v41_control)))
+
+data.pbc <- data %>% 
+  ungroup() %>% 
+  summarise(across(c(v39_easi.4moreceive, v40_choice, v41_control, PBC), list(mean = mean, sd = sd), na.rm = TRUE))
+
+(data.pbc2 <- t(data.pbc))
+
+# summary(data$PBC)
+
+# Indirect social norms
+# PHO
+# 
+table(data$v31_pho_approve) 
+# recode to -2 to 2
+data$v31_pho_approve <- data$v31_pho_approve-3
+
+# then multiply by v32_pho_important
+data$SNI.PHO <- data$v31_pho_approve * data$v32_pho_important
+# summary(data$SNI.PHO)
+
+# partner
+table(data$v33_partner_approve)
+data$v33_partner_approve <- replace(data$v33_partner_approve, which(data$v33_partner_approve == 999), NA)
+# recode to -2 to 2
+data$v33_partner_approve <- data$v33_partner_approve-3
+
+# then multiply by v34_partner_important
+# table(data$v34_partner_important)
+data$v34_partner_important <- replace(data$v34_partner_important, which(data$v34_partner_important == 999), NA)
+
+data$SNI.PART <- data$v33_partner_approve * data$v34_partner_important
+# summary(data$SNI.PART)
+
+
+# Friends/fam
+# table(data$v35_fam_approve)
+# recode to -2 to 2
+data$v35_fam_approve <- data$v35_fam_approve-3
+
+# then multiply by v36_fam_important
+# table(data$v36_fam_important)
+
+data$SNI.FRI <- data$v35_fam_approve * data$v36_fam_important
+# summary(data$SNI.FRI)
+
+
+# prenatal care provider
+# table(data$v37_prenatal_approve)
+data$v37_prenatal_approve <- replace(data$v37_prenatal_approve, which(data$v37_prenatal_approve == 999), NA)
+# recode to -2 to 2
+data$v37_prenatal_approve <- data$v37_prenatal_approve-3
+
+# then multiply by v38_prenatal_important
+# table(data$v38_prenatal_important)
+data$v38_prenatal_important <- replace(data$v38_prenatal_important, which(data$v38_prenatal_important == 999), NA)
+
+data$SNI.PRE <- data$v37_prenatal_approve * data$v38_prenatal_important
+# summary(data$SNI.PRE)
+
+
+sn.ca <- alpha(data[, c("SNI.PHO", "SNI.PART", "SNI.FRI", "SNI.PRE")])
+sn.ca
+#  lower alpha upper     95% confidence boundaries
+# 0.56 0.59 0.61
+
+data <- data %>% 
+  rowwise() %>% 
+  mutate(SNI.TOT = sum(SNI.PHO, SNI.PART, SNI.FRI, SNI.PRE))
+
+# summary(data$SNI.TOT)
+ #   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+ # -24.00   21.00   30.00   26.76   34.00   40.00     188 
+
+data.isn <- data %>% 
+  ungroup() %>% 
+  summarise(across(c(v31_pho_approve:v38_prenatal_important, SNI.PHO, SNI.PART, SNI.FRI, SNI.PRE) , list(mean = mean, sd = sd), na.rm = TRUE))
+
+(data.isn2 <- t(data.isn))
+
+
+```
+
+```{r table by vaccine intentions, include = TRUE, warning = FALSE, message = FALSE}
+
+getT1Stat <- function(varname, digits=0, useNA = "ifany"){
+  getDescriptionStatsBy(data[, varname], 
+                        data$likely, 
+                        add_total_col=TRUE,
+                        show_all_values=TRUE, 
+                        hrzl_prop=TRUE,
+                        statistics = TRUE,
+                        html=TRUE, 
+                        useNA = useNA,
+                        digits=digits,
+                        header_count = TRUE)
+}
+
+table_data <- list()
+
+data <- as.data.frame(data)
+
+# Get the basic stats
+table_data[["WHO scale: Vaccine Risks"]] <- getT1Stat("VHS_risk", 1)
+table_data[["Attitudes to COVID-19 Vaccine"]] <- getT1Stat("ATT", 1)
+table_data[["Perceived Behavioural Control"]] <- getT1Stat("PBC", 1)
+table_data[["Direct Social Norms: Most people who are important to me would think that I should receive the COVID-19 vaccine while pregnant/lactating"]] <- getT1Stat("v29_important", 1)
+table_data[["Direct Social Norms: I feel under social pressure to receive a COVID-19 vaccine while pregnant/lactating"]] <- getT1Stat("v30_socialpressure", 1)
+table_data[["Indirect Social Norms: Provincial Health Officer"]] <- getT1Stat("SNI.PHO", 1)
+table_data[["Indirect Social Norms: Partner"]] <- getT1Stat("SNI.PART", 1)
+table_data[["Indirect Social Norms: Friends & Family"]] <- getT1Stat("SNI.FRI", 1)
+table_data[["Indirect Social Norms: Prenatal care provider"]] <- getT1Stat("SNI.PRE", 1)
+
+
+
+# Now merge everything into a matrix
+# and create the rgroup & n.rgroup variabels
+rgroup <- c()
+n.rgroup <- c()
+output_data <- NULL
+for (varlabel in names(table_data)) {
+  output_data <- rbind(output_data, 
+                       table_data[[varlabel]])
+  rgroup <- c(rgroup, 
+              varlabel)
+  n.rgroup <- c(n.rgroup, 
+                nrow(table_data[[varlabel]]))
+}
+ 
+# Add a column spanner for the columns
+cgroup <- c("", "Likely to receive COVID-19 vaccine")
+n.cgroup <- c(1, 3)
+colnames(output_data) <- gsub("[ ]*Likely to receive COVID-19 vaccine", "", colnames(output_data))
+ 
+htmlTable::htmlTable(output_data, align = "rrrr",
+          rgroup = rgroup, n.rgroup = n.rgroup, 
+          css.rgroup.sep = "", 
+          cgroup = cgroup,
+          n.cgroup = n.cgroup,
+          rowlabel = "", 
+          caption = "", 
+          ctable = TRUE) # %>% htmltools::html_print()
+
+
+
+```
+
