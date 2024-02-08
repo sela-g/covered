@@ -49,6 +49,8 @@ describeFactors(data$bl16_country_res[which(data$withdraw_answer == 1)])
 
 data <- data[-which(data$withdraw_answer == 1), ]
 
+data <- data[-which(data$record_id == "183"|data$record_id == "6239"|
+                      data$record_id == "4928"), ]
 
 ids.can <- data$record_id[which(data$bl16_country_res == 1)]
 
@@ -58,7 +60,9 @@ ids.can.preg <- data$record_id[which(data$bl16_country_res == 1 & data$vaccine_a
                                        data$i1_dob1 > data$vaccine_attitudes_survey_timestamp
 )]
 
-EDDs <- data$bl1a_delivery_date
+EDDs <- as.Date(data$bl1a_delivery_date, format = "%m/%d/%Y")
+
+LMPs <- EDDs - 180
 
 ids.can.EDD <- data$record_id[which(data$bl16_country_res == 1 & data$bl1a_delivery_date != "" &
                                        data$bl1a_delivery_date != "" &
@@ -70,7 +74,9 @@ ids.can.EDD.vacc <- data$record_id[which(data$bl16_country_res == 1 & data$bl1a_
                                       data$bl1a_delivery_date != "" &
                                       data$vaccine_attitudes_survey_timestamp != "" &
                                       data$bl1a_delivery_date > data$vaccine_attitudes_survey_timestamp &
-                                      data$do3_date != "" & data$bl1a_delivery_date > data$do3_date
+                                      !is.na(as.Date(data$do3_date, format = "%m/%d/%Y")) & 
+                                        as.Date(data$bl1a_delivery_date, format = "%m/%d/%Y") > as.Date(data$do3_date, format = "%m/%d/%Y") & 
+                                      (as.Date(data$bl1a_delivery_date, format = "%m/%d/%Y") - 280 > as.Date(data$do3_date, format = "%m/%d/%Y"))
                                       )]
 
 vacc.dates <-  data$do3_date
