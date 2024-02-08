@@ -40,7 +40,7 @@ library(readxl)
 getwd()
 
 
-data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-29_1859 (3).csv",header = TRUE)
+data <- read.csv("MainSurveyDatabaseCa_DATA_2024-02-08_1246.csv",header = TRUE)
 
 ## look at data
 
@@ -74,9 +74,9 @@ ids.can.EDD.vacc <- data$record_id[which(data$bl16_country_res == 1 & data$bl1a_
                                       data$bl1a_delivery_date != "" &
                                       data$vaccine_attitudes_survey_timestamp != "" &
                                       data$bl1a_delivery_date > data$vaccine_attitudes_survey_timestamp &
-                                      !is.na(as.Date(data$do3_date, format = "%m/%d/%Y")) & 
-                                        as.Date(data$bl1a_delivery_date, format = "%m/%d/%Y") > as.Date(data$do3_date, format = "%m/%d/%Y") & 
-                                      (as.Date(data$bl1a_delivery_date, format = "%m/%d/%Y") - 280 > as.Date(data$do3_date, format = "%m/%d/%Y"))
+                                      !is.na(as.Date(data$do3_date, format = "%Y-%m-%d")) & 
+                                      as.Date(data$bl1a_delivery_date, format = "%Y-%m-%d") > as.Date(data$do3_date, format = "%Y-%m-%d") &
+                                      as.Date(data$bl1a_delivery_date, format = "%Y-%m-%d") - 280 < as.Date(data$do3_date, format = "%Y-%m-%d")
                                       )]
 
 vacc.dates <-  data$do3_date
