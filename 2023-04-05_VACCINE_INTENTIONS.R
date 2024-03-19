@@ -51,7 +51,8 @@ setwd("/Users/selagrays/dev/covered")
 
 
 ## ----data, include = F----------------------------------------------------------------------------------------------------------------------
-data <- read.csv("MainSurveyDatabaseCa-VaccineAttitudesIF_DATA_2024-01-31_1609.csv",header = TRUE)
+data <- read.csv("MainSurveyDatabaseCa_DATA_2024-02-08_1530.csv",header = TRUE)
+
 
 ## ----data cleaning and inclusion, include = F-----------------------------------------------------------------------------------------------
 # exclude the non living in Canada
@@ -84,9 +85,14 @@ ids.can.EDD.vacc <- data$record_id[which(data$bl16_country_res == 1 & data$bl1a_
                                            data$bl1a_delivery_date != "" &
                                            data$vaccine_attitudes_survey_timestamp != "" &
                                            data$bl1a_delivery_date > data$vaccine_attitudes_survey_timestamp &
-                                           data$do3_date != "" & data$bl1a_delivery_date > data$do3_date
-)]
-
+                                           ((!is.na(as.Date(data$do3_date, format = "%Y-%m-%d")) & 
+                                               as.Date(data$bl1a_delivery_date, format = "%Y-%m-%d") > as.Date(data$do3_date, format = "%Y-%m-%d") &
+                                               as.Date(data$bl1a_delivery_date, format = "%Y-%m-%d") - 280 < as.Date(data$do3_date, format = "%Y-%m-%d"))|
+                                              #dose 2 bl10_dose2_date
+                                              (!is.na(as.Date(data$bl10_dose2_date, format = "%Y-%m-%d")) & 
+                                                 as.Date(data$bl1a_delivery_date, format = "%Y-%m-%d") > as.Date(data$bl10_dose2_date, format = "%Y-%m-%d") &
+                                                 as.Date(data$bl1a_delivery_date, format = "%Y-%m-%d") - 280 < as.Date(data$bl10_dose2_date, format = "%Y-%m-%d"))
+                                           ))]
 vacc.dates <-  data$do3_date
 length(unique(data$record_id))
 
@@ -804,17 +810,6 @@ data.gov<- t(data.gov)
 
 
 ## ----TPB, include = F-----------------------------------------------------------------------------------------------------------------------
-# sum to form attitude scale
-# all attitudes anchored in same direction
-# v18 to v28
-
-a.ca <- alpha(data[, c("v18_serious_BL", "v19_serious_preg_BL", "v20_beneficial_BL", "v21_beneficial_preg_BL", "v22_tested_BL", "v23_tested_preg_BL", "v24_safe_BL", "v25_safe_preg_BL", "v26_safe_fetus_BL", "v27_effective_BL", "v28_effective_preg_BL")])
-a.ca
-
-
-#          lower alpha upper
-# Feldt     0.88  0.89  0.89 
-
 
 data <- data %>% 
   rowwise() %>% 
@@ -840,24 +835,6 @@ describeFactors(data$v26_safe_fetus_BL)
 describeFactors(data$v27_effective_BL)
 describeFactors(data$v28_effective_preg_BL)
 
-
-# direct subjective norms
-# v29 to v30
-describeFactors(data$v29_important_BL)
-mean(data$v29_important_BL, na.rm = TRUE)
-sd(data$v29_important_BL, na.rm = TRUE)
-
-
-describeFactors(data$v30_socialpressure_BL)
-mean(data$v30_socialpressure_BL, na.rm = TRUE)
-sd(data$v30_socialpressure_BL, na.rm = TRUE)
-
-snd.ca <- alpha(data[, c("v29_important_BL", "v30_socialpressure_BL")])
-snd.ca
-#          lower alpha upper
-# Feldt    -0.05  0.02  0.08
-# these 2 are not agreeing and should be reported separately
-
 data.dsn <- data %>% 
   ungroup() %>% 
   summarise(across(c(v29_important_BL:v30_socialpressure_BL), list(mean = mean, sd = sd), na.rm = TRUE))
@@ -865,17 +842,6 @@ data.dsn <- data %>%
 (data.dsn2 <- t(data.dsn))
 
 
-# perceived behavioural control
-# v39 to v41
-data$v39_easilyreceive_BL[which(data$v1_dose1_likely_BL != 6)]
-describeFactors(data$v39_easilyreceive_BL[which(data$v1_dose1_likely_BL != 6)])
-data$v40_choice_BL[which(data$v1_dose1_likely_BL != 6)]
-data$v41_control_BL[which(data$v1_dose1_likely_BL != 6)]
-
-pbc.ca <- alpha(data[which(data$v1_dose1_likely_BL != 6), c("v39_easilyreceive_BL", "v40_choice_BL", "v41_control_BL")])
-pbc.ca
-#          lower alpha upper
-# Feldt     0.53  0.59  0.65
 
 data <- data %>% 
   rowwise() %>% 
@@ -903,13 +869,6 @@ data$v34_partner_important_BL <- replace(data$v34_partner_important_BL, which(da
 data$v37_prenatal_approve_BL <- replace(data$v37_prenatal_approve_BL, which(data$v37_prenatal_approve_BL == 999), NA)
 
 data$v38_prenatal_important_BL <- replace(data$v38_prenatal_important_BL, which(data$v38_prenatal_important_BL == 999), NA)
-
-
-isn.ca <- alpha(data[, c("v31_pho_approve_BL", "v32_pho_important_BL", "v33_partner_approve_BL", "v34_partner_important_BL", "v35_fam_approve_BL", "v36_fam_important_BL", "v37_prenatal_approve_BL", "v38_prenatal_important_BL")])
-isn.ca
-isn.ca$feldt
-#       lower alpha upper
-#Feldt  0.627 0.645 0.663
 
 # describeFactors(data$v31_pho_approve_BL)
 # data$v31_pho_approve_BL <- data$v31_pho_approve_BL + 3
@@ -1032,21 +991,6 @@ data.isn <- data %>%
 # WHO scale
 # new vaccine more risk, concerned about adverse effects 8 and 9 = risks 
 
-describeFactors(data$v16_risks_BL)
-length(data$v16_risks_BL)
-
-describeFactors(data$v17_effects_BL)
-length(data$v17_effects_BL)
-
-
-mean(data$v16_risks_BL, na.rm = TRUE)
-sd(data$v16_risks_BL, na.rm = TRUE)
-
-mean(data$v17_effects_BL, na.rm = TRUE)
-sd(data$v17_effects_BL, na.rm = TRUE)
-# get the average scores
-
-
 data <- data %>% 
   rowwise() %>% 
   mutate(VHS_risk = sum(c(v16_risks_BL, v17_effects_BL)))
@@ -1054,19 +998,12 @@ data <- data %>%
 summary(data$VHS_risk)
 
 
-VHS_risk <- alpha(data[, c("v16_risks_BL", "v17_effects_BL")])
-VHS_risk$feldt
-#          lower alpha upper
-# Feldt    0.626 0.651 0.673
-
 data.who <- data %>% 
   ungroup() %>% 
   summarise(across(c(v16_risks_BL, v17_effects_BL, VHS_risk), list(mean = mean, sd = sd), na.rm = TRUE))
 
 (data.who <- t(data.who))
 data.who
-
-
 
 ## ----table by vaccine intentions, include = F-----------------------------------------------------------------------------------------------
 
@@ -1192,7 +1129,7 @@ for (varlabel in names(table_data)) {
 }
 
 # Add a column spanner for the columns
-cgroup <- c("", "Likely to receive COVID-19 vaccine")
+cgroup <- c("", "COVID-19 vaccine given during pregnancy")
 n.cgroup <- c(1, 3)
 colnames(output_data) <- gsub("[ ]*Likely to receive COVID-19 vaccine", "", colnames(output_data))
 
@@ -1218,6 +1155,67 @@ htmlTable::htmlTable(output_data, align = "rrrr",
                      rowlabel = "", 
                      caption = "", 
                      ctable = TRUE) 
+
+
+#### TABLE 3 REMAKE ####
+
+## WHO scale ##
+
+describeFactors(data$v16_risks)
+mean(data$v16_risks, na.rm = TRUE)
+sd(data$v16_risks, na.rm = TRUE)
+
+describeFactors(data$v17_effects)
+mean(data$v17_effects, na.rm = TRUE)
+sd(data$v17_effects, na.rm = TRUE)
+
+WHO_overall <- alpha(data[, c("v17_effects_BL", "v16_risks_BL")])
+WHO_overall
+
+## Attitudes ##
+describeFactors(data$v18_serious_BL)
+mean(data$v18_serious_BL, na.rm = TRUE)
+sd(data$v18_serious_BL, na.rm = TRUE)
+
+describeFactors(data$v19_serious_preg_BL)
+mean(data$v19_serious_preg_BL, na.rm = TRUE)
+sd(data$v19_serious_preg_BL, na.rm = TRUE)
+
+a.ca <- alpha(data[, c("v18_serious_BL", "v19_serious_preg_BL", "v20_beneficial_BL", "v21_beneficial_preg_BL", "v22_tested_BL", "v23_tested_preg_BL", "v24_safe_BL", "v25_safe_preg_BL", "v26_safe_fetus_BL", "v27_effective_BL", "v28_effective_preg_BL")])
+a.ca
+
+## DIRECT SOCIAL NORMS##
+
+describeFactors(data$v29_important_BL)
+mean(data$v29_important_BL, na.rm = TRUE)
+sd(data$v29_important_BL, na.rm = TRUE)
+
+
+describeFactors(data$v30_socialpressure_BL)
+mean(data$v30_socialpressure_BL, na.rm = TRUE)
+sd(data$v30_socialpressure_BL, na.rm = TRUE)
+
+dsn.ca <- alpha(data[, c("v29_important_BL", "v30_socialpressure_BL")])
+dsn.ca
+
+## INDIRECT SOCIAL NORMS ##
+
+isn.ca <- alpha(data[, c("v31_pho_approve_BL", "v32_pho_important_BL", "v33_partner_approve_BL", "v34_partner_important_BL", "v35_fam_approve_BL", "v36_fam_important_BL", "v37_prenatal_approve_BL", "v38_prenatal_important_BL")])
+isn.ca
+isn.ca$feldt
+
+## Perceived Behavioural Controls ## 
+# perceived behavioural control
+# v39 to v41
+data$v39_easilyreceive_BL[which(data$v1_dose1_likely_BL != 6)]
+describeFactors(data$v39_easilyreceive_BL[which(data$v1_dose1_likely_BL != 6)])
+data$v40_choice_BL[which(data$v1_dose1_likely_BL != 6)]
+data$v41_control_BL[which(data$v1_dose1_likely_BL != 6)]
+
+pbc.ca <- alpha(data[which(data$v1_dose1_likely_BL != 6), c("v39_easilyreceive_BL", "v40_choice_BL", "v41_control_BL")])
+pbc.ca
+#          lower alpha upper
+# Feldt     0.53  0.59  0.65
 
 
 ## ----model, include = F---------------------------------------------------------------------------------------------------------------------
