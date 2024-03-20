@@ -1159,64 +1159,145 @@ htmlTable::htmlTable(output_data, align = "rrrr",
 
 #### TABLE 3 REMAKE ####
 
-## WHO scale ##
+## WHO SCALE ##
 
 describeFactors(data$v16_risks)
-mean(data$v16_risks, na.rm = TRUE)
-sd(data$v16_risks, na.rm = TRUE)
+v16_mean <- mean(data$v16_risks, na.rm = TRUE)
+v16_sd<- sd(data$v16_risks, na.rm = TRUE)
 
 describeFactors(data$v17_effects)
-mean(data$v17_effects, na.rm = TRUE)
-sd(data$v17_effects, na.rm = TRUE)
+v17_mean <- mean(data$v17_effects, na.rm = TRUE)
+v17_sd<- sd(data$v17_effects, na.rm = TRUE)
 
 WHO_overall <- alpha(data[, c("v17_effects_BL", "v16_risks_BL")])
 WHO_overall
 
-## Attitudes ##
+## ATTITUDES ##
 describeFactors(data$v18_serious_BL)
-mean(data$v18_serious_BL, na.rm = TRUE)
-sd(data$v18_serious_BL, na.rm = TRUE)
+v18_mean <- mean(data$v18_serious_BL, na.rm = TRUE)
+v18_sd <- sd(data$v18_serious_BL, na.rm = TRUE)
 
 describeFactors(data$v19_serious_preg_BL)
-mean(data$v19_serious_preg_BL, na.rm = TRUE)
-sd(data$v19_serious_preg_BL, na.rm = TRUE)
+v19_mean <- mean(data$v19_serious_preg_BL, na.rm = TRUE)
+v19_sd <- sd(data$v19_serious_preg_BL, na.rm = TRUE)
 
-a.ca <- alpha(data[, c("v18_serious_BL", "v19_serious_preg_BL", "v20_beneficial_BL", "v21_beneficial_preg_BL", "v22_tested_BL", "v23_tested_preg_BL", "v24_safe_BL", "v25_safe_preg_BL", "v26_safe_fetus_BL", "v27_effective_BL", "v28_effective_preg_BL")])
+describeFactors(data$v20_beneficial_BL)
+v20_mean <- mean(data$v20_beneficial_BL, na.rm = TRUE)
+v20_sd <- sd(data$v20_beneficial_BL, na.rm = TRUE)
+
+describeFactors(data$v21_beneficial_preg_BL)
+v21_mean <- mean(data$v21_beneficial_preg_BL, na.rm = TRUE)
+v21_sd <- sd(data$v21_beneficial_preg_BL, na.rm = TRUE)
+
+describeFactors(data$v22_tested_BL)
+v22_mean <- mean(data$v22_tested_BL, na.rm = TRUE)
+v22_sd <- sd(data$v22_tested_BL, na.rm = TRUE)
+
+describeFactors(data$v23_tested_preg_BL)
+v23_mean <- mean(data$v23_tested_preg_BL, na.rm = TRUE)
+v23_sd <- sd(data$v23_tested_preg_BL, na.rm = TRUE)
+
+describeFactors(data$v24_safe_BL)
+v24_mean <- mean(data$v24_safe_BL, na.rm = TRUE)
+v24_sd <- sd(data$v24_safe_BL, na.rm = TRUE)
+
+describeFactors(data$v25_safe_preg_BL)
+v25_mean <- mean(data$v25_safe_preg_BL, na.rm = TRUE)
+v25_sd <- sd(data$v25_safe_preg_BL, na.rm = TRUE)
+
+describeFactors(data$v26_safe_fetus_BL)
+v26_mean <- mean(data$v26_safe_fetus_BL, na.rm = TRUE)
+v26_sd <- sd(data$v26_safe_fetus_BL, na.rm = TRUE)
+
+describeFactors(data$v27_effective_BL)
+v27_mean <- mean(data$v27_effective_BL, na.rm = TRUE)
+v27_sd <- sd(data$v27_effective_BL, na.rm = TRUE)
+
+describeFactors(data$v28_safe_fetus_BL)
+v28_mean <- mean(data$v28_safe_fetus_BL, na.rm = TRUE)
+v28_sd <- sd(data$v28_safe_fetus_BL, na.rm = TRUE)
+
+a.ca <- alpha(data[, c("v18_serious_BL", "v19_serious_preg_BL", "v20_beneficial_BL", 
+                       "v21_beneficial_preg_BL", "v22_tested_BL", "v23_tested_preg_BL",
+                       "v24_safe_BL", "v25_safe_preg_BL", "v26_safe_fetus_BL", 
+                       "v27_effective_BL", "v28_effective_preg_BL")])
 a.ca
 
-## DIRECT SOCIAL NORMS##
+## DIRECT SOCIAL NORMS ##
 
 describeFactors(data$v29_important_BL)
-mean(data$v29_important_BL, na.rm = TRUE)
-sd(data$v29_important_BL, na.rm = TRUE)
+v29_mean <- mean(data$v29_important_BL, na.rm = TRUE)
+v29_sd <- sd(data$v29_important_BL, na.rm = TRUE)
 
 
 describeFactors(data$v30_socialpressure_BL)
-mean(data$v30_socialpressure_BL, na.rm = TRUE)
-sd(data$v30_socialpressure_BL, na.rm = TRUE)
+v30_mean <- mean(data$v30_socialpressure_BL, na.rm = TRUE)
+v30_sd <- sd(data$v30_socialpressure_BL, na.rm = TRUE)
 
 dsn.ca <- alpha(data[, c("v29_important_BL", "v30_socialpressure_BL")])
 dsn.ca
 
 ## INDIRECT SOCIAL NORMS ##
 
-isn.ca <- alpha(data[, c("v31_pho_approve_BL", "v32_pho_important_BL", "v33_partner_approve_BL", "v34_partner_important_BL", "v35_fam_approve_BL", "v36_fam_important_BL", "v37_prenatal_approve_BL", "v38_prenatal_important_BL")])
+describeFactors(data$v31_pho_approve_BL)
+v31_mean <- mean(data$v31_pho_approve_BL, na.rm = TRUE)
+v31_sd <- sd(data$v31_pho_approve_BL, na.rm = TRUE)
+
+describeFactors(data$v32_pho_important_BL)
+v32_mean <- mean(data$v32_pho_important_BL, na.rm = TRUE)
+v32_sd <- sd(data$v32_pho_important_BL, na.rm = TRUE)
+
+describeFactors(data$v33_partner_approve_BL)
+v33_mean <- mean(data$v33_partner_approve_BL, na.rm = TRUE)
+v33_sd <- sd(data$v33_partner_approve_BL, na.rm = TRUE)
+
+describeFactors(data$v34_partner_important_BL)
+v34_mean <- mean(data$v34_partner_important_BL, na.rm = TRUE)
+v34_sd <- sd(data$v34_partner_important_BL, na.rm = TRUE)
+
+describeFactors(data$v35_fam_approve_BL)
+v35_mean <- mean(data$v35_fam_approve_BL, na.rm = TRUE)
+v35_sd <- sd(data$v35_fam_approve_BL, na.rm = TRUE)
+
+describeFactors(data$v36_fam_important_BL)
+v36_mean <- mean(data$v36_fam_important_BL, na.rm = TRUE)
+v36_sd <- sd(data$v36_fam_important_BL, na.rm = TRUE)
+
+describeFactors(data$v37_prenatal_approve_BL)
+v37_mean <- mean(data$v37_prenatal_approve_BL, na.rm = TRUE)
+v37_sd <- sd(data$v37_prenatal_approve_BL, na.rm = TRUE)
+
+describeFactors(data$v38_prenatal_important_BL)
+v38_mean <- mean(data$v38_prenatal_important_BL, na.rm = TRUE)
+v38_sd <- sd(data$v38_prenatal_important_BL, na.rm = TRUE)
+
+isn.ca <- alpha(data[, c("v31_pho_approve_BL", "v32_pho_important_BL", "v33_partner_approve_BL", 
+                         "v34_partner_important_BL", "v35_fam_approve_BL", "v36_fam_important_BL", 
+                         "v37_prenatal_approve_BL", "v38_prenatal_important_BL")])
 isn.ca
 isn.ca$feldt
 
-## Perceived Behavioural Controls ## 
-# perceived behavioural control
-# v39 to v41
+## PERCIEVED BEHAVIORAL CONTROLS ## 
+unvacced <- data[which(data$likely == "No"),]
 data$v39_easilyreceive_BL[which(data$v1_dose1_likely_BL != 6)]
 describeFactors(data$v39_easilyreceive_BL[which(data$v1_dose1_likely_BL != 6)])
 data$v40_choice_BL[which(data$v1_dose1_likely_BL != 6)]
 data$v41_control_BL[which(data$v1_dose1_likely_BL != 6)]
 
-pbc.ca <- alpha(data[which(data$v1_dose1_likely_BL != 6), c("v39_easilyreceive_BL", "v40_choice_BL", "v41_control_BL")])
+pbc.ca <- alpha(unvacced[, c("v39_easilyreceive_BL", "v40_choice_BL", "v41_control_BL")])
 pbc.ca
-#          lower alpha upper
-# Feldt     0.53  0.59  0.65
 
+describeFactors(unvacced$v39_easilyreceive_BL)
+v39_mean <- mean(unvacced$v39_easilyreceive_BL, na.rm = TRUE)
+v39_sd <- sd(unvacced$v39_easilyreceive_BL, na.rm = TRUE)
+
+describeFactors(unvacced$v40_choice_BL)
+v40_mean <- mean(unvacced$v40_choice_BL, na.rm = TRUE)
+v40_sd <- sd(unvacced$v40_choice_BL, na.rm = TRUE)
+
+describeFactors(unvacced$v41_control_BL)
+v41_mean <- mean(unvacced$v41_control_BL, na.rm = TRUE)
+v41_sd <- sd(unvacced$v41_control_BL, na.rm = TRUE)
 
 ## ----model, include = F---------------------------------------------------------------------------------------------------------------------
 # logistic regression models
